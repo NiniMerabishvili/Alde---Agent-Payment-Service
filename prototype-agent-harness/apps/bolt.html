@@ -1,0 +1,706 @@
+<!doctype html>
+<!-- PROTOTYPE — throwaway investor demo. A Bolt rider-app look-alike with the AgentPay agent built in via /sdk.js.
+     TEST CASE: "Order a taxi from current location (freeuni) to didube metro station"  → 1× Bolt to Didube Metro Station — Economy
+     (pickup = user location: Free University (Freeuni)).
+     KA TEST CASE: "გამომიძახე ტაქსი ჩემი ლოკაციიდან (თავისუფალი უნივერსიტეტი) დიდუბის მეტრომდე" → the same order (9.90 ₾).
+     Everything Bolt-specific (map, ride picker, driver screens) is "the client's app"; the agent + payments come from our API. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Bolt — AI ride booking demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --g: #34d186; --gd: #2a9d5c; --g08: rgba(52,209,134,.12); --g16: rgba(42,157,92,.18);
+    --text: #191f1c; --muted: #6b7570; --faint: #a3aba7; --line: #eceeed; --surface: #f3f4f3; --radius: 14px;
+    font-family: "DM Sans", -apple-system, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: #e9eeeb; color: var(--text); min-height: 100vh; display: flex; justify-content: center; align-items: center; gap: 40px; padding: 24px; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+
+  /* ---------- phone frame ---------- */
+  .phone { width: 390px; height: 844px; border-radius: 54px; background: #111; padding: 11px; box-shadow: 0 30px 80px rgba(0,0,0,.25); flex-shrink: 0; position: relative; }
+  .screen { width: 100%; height: 100%; border-radius: 44px; overflow: hidden; background: #fff; position: relative; display: flex; flex-direction: column; }
+  .island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 120px; height: 34px; background: #111; border-radius: 20px; z-index: 100; }
+  .statusbar { position: absolute; top: 0; left: 0; right: 0; height: 50px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 30px 6px 34px; font-weight: 700; font-size: 15px; z-index: 70; pointer-events: none; }
+  .statusbar .icons { display: flex; gap: 6px; align-items: center; }
+  @media (max-width: 520px) {
+    body { padding: 0; background: #fff; display: block; }
+    .phone { width: 100vw; height: 100dvh; border-radius: 0; padding: 0; box-shadow: none; }
+    .screen { border-radius: 0; }
+    .island, .statusbar, .hood { display: none !important; }
+    .chat { top: 0 !important; }
+  }
+
+  /* ---------- map ---------- */
+  .map { position: absolute; inset: 0; background: #eef0ec; overflow: hidden; }
+  .map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .pin { position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; z-index: 3; pointer-events: none; }
+  .pin .lbl { background: #fff; border-radius: 10px; padding: 6px 10px; font-weight: 700; font-size: 12.5px; box-shadow: 0 2px 10px rgba(0,0,0,.16); white-space: nowrap; margin-bottom: 6px; display: flex; gap: 6px; align-items: center; }
+  .pin .lbl small { color: var(--muted); font-weight: 600; }
+  .pin .lbl b.eta { background: var(--text); color: #fff; border-radius: 6px; padding: 1px 6px; font-size: 11.5px; }
+  .pin .dot { width: 20px; height: 20px; border-radius: 50%; background: var(--gd); border: 5px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+  .pin .sq { width: 18px; height: 18px; border-radius: 4px; background: var(--text); border: 5px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+  .pin.me .dot { width: 22px; height: 22px; background: #2f80ed; }
+  .pulse { position: absolute; width: 180px; height: 180px; margin: -90px 0 0 -90px; border-radius: 50%; background: rgba(52,209,134,.25); animation: pulse 1.8s ease-out infinite; z-index: 2; pointer-events: none; }
+  .pulse.b { animation-delay: .9s; }
+  @keyframes pulse { from { transform: scale(.15); opacity: 1; } to { transform: scale(1); opacity: 0; } }
+  .car { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; z-index: 3; pointer-events: none; transition: left 1.8s linear, top 1.8s linear; }
+  .mapbtn { position: absolute; z-index: 10; width: 46px; height: 46px; border-radius: 50%; background: #fff; display: grid; place-items: center; box-shadow: 0 2px 10px rgba(0,0,0,.16); }
+  .aipill { position: absolute; z-index: 10; right: 16px; top: 58px; background: #fff; border-radius: 99px; padding: 0 16px 0 12px; height: 46px; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14.5px; box-shadow: 0 2px 10px rgba(0,0,0,.16); }
+  .aipill .sp { width: 26px; height: 26px; border-radius: 50%; background: var(--g); color: #fff; display: grid; place-items: center; font-size: 14px; }
+
+  /* ---------- bottom sheet ---------- */
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 20; background: #fff; border-radius: 22px 22px 0 0; box-shadow: 0 -4px 24px rgba(0,0,0,.12); padding: 8px 0 26px; max-height: 76%; display: flex; flex-direction: column; animation: up .28s ease-out; }
+  .sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: #d9dddb; margin: 0 auto 10px; flex-shrink: 0; }
+  .sheet .sc { overflow-y: auto; scrollbar-width: none; flex: 1; }
+  .sheet .sc::-webkit-scrollbar { display: none; }
+  @keyframes up { from { transform: translateY(30%); opacity: .3; } }
+  @keyframes fade { from { opacity: 0; } }
+  .where { margin: 2px 16px 6px; display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 14px; padding: 15px 14px; font-weight: 700; font-size: 19px; width: calc(100% - 32px); text-align: left; }
+  .where .ai { margin-left: auto; display: flex; align-items: center; gap: 5px; background: #fff; color: var(--gd); padding: 6px 10px; border-radius: 99px; font-size: 13px; font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .place { display: flex; align-items: center; gap: 14px; padding: 12px 16px; width: 100%; text-align: left; }
+  .place .ic { width: 40px; height: 40px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; flex-shrink: 0; color: var(--muted); font-size: 18px; }
+  .place .t { flex: 1; min-width: 0; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: -12px; }
+  .place b { display: block; font-weight: 700; font-size: 15.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .place small { color: var(--muted); font-weight: 500; font-size: 13.5px; }
+  .place .km { color: var(--muted); font-size: 13px; font-weight: 600; }
+  .tiles { display: flex; gap: 10px; padding: 14px 16px 6px; }
+  .tile { flex: 1; background: var(--surface); border-radius: 14px; padding: 10px 10px 8px; font-weight: 700; font-size: 13px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+  .tile .e { font-size: 24px; }
+  .tile.on { background: var(--g08); }
+  .promo { margin: 12px 16px 4px; border-radius: 16px; padding: 14px 16px; background: var(--g); color: #0b2b1a; display: flex; gap: 12px; align-items: center; width: calc(100% - 32px); text-align: left; }
+  .promo b { font-size: 16px; font-weight: 800; display: block; }
+  .promo span { font-size: 13px; font-weight: 600; opacity: .85; }
+  .promo .sp { width: 42px; height: 42px; border-radius: 12px; background: #0b2b1a; color: var(--g); display: grid; place-items: center; font-size: 20px; flex-shrink: 0; }
+  .sh { font-weight: 800; font-size: 17px; padding: 14px 16px 4px; }
+
+  /* ---------- ride picker ---------- */
+  .route { display: flex; gap: 12px; padding: 4px 16px 10px; align-items: stretch; }
+  .route .rail { display: flex; flex-direction: column; align-items: center; padding: 6px 0; }
+  .route .rail i { width: 10px; height: 10px; border-radius: 50%; background: var(--gd); }
+  .route .rail i.d { border-radius: 2px; background: var(--text); }
+  .route .rail s { flex: 1; width: 2px; background: #d6dbd8; margin: 3px 0; }
+  .route .ad { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .route .ad div { font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .route .ad small { color: var(--muted); font-weight: 500; }
+  .cls { display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin: 0 10px; border-radius: 14px; width: calc(100% - 20px); text-align: left; border: 2px solid transparent; }
+  .cls.on { background: var(--g08); border-color: var(--g); }
+  .cls > svg { width: 64px; height: 34px; flex-shrink: 0; }
+  .cls .t { flex: 1; }
+  .cls b { font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 6px; }
+  .cls b .seat { color: var(--muted); font-weight: 600; font-size: 12.5px; display: flex; align-items: center; gap: 2px; }
+  .cls small { color: var(--muted); font-weight: 500; font-size: 13px; }
+  .cls .pr { font-weight: 800; font-size: 16px; text-align: right; }
+  .cls .pr small { display: block; font-weight: 500; }
+  .rowx { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); font-weight: 600; font-size: 14.5px; width: 100%; text-align: left; }
+  .rowx .chev { margin-left: auto; color: var(--faint); font-size: 20px; }
+  .rowx small { color: var(--muted); font-weight: 500; }
+  .visa { background: #1a1f71; color: #fff; font-weight: 900; font-style: italic; font-size: 10.5px; padding: 3px 6px; border-radius: 4px; }
+  .btn { background: var(--gd); color: #fff; border-radius: 14px; padding: 16px; font-weight: 700; font-size: 16.5px; width: 100%; display: flex; justify-content: center; gap: 8px; }
+  .btn:disabled { opacity: .55; }
+  .btn.sec2 { background: var(--surface); color: var(--text); }
+  .foot { padding: 10px 16px 0; display: flex; gap: 10px; }
+  .foot .sched { width: 56px; flex-shrink: 0; background: var(--surface); border-radius: 14px; display: grid; place-items: center; }
+  .prefs { padding: 4px 16px 6px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .pref { border: 1.5px solid var(--line); border-radius: 99px; padding: 7px 12px; font-weight: 600; font-size: 13px; }
+  .pref.on { border-color: var(--gd); background: var(--g08); color: var(--gd); }
+
+  /* ---------- driver ---------- */
+  .banner { padding: 2px 16px 12px; }
+  .banner h2 { font-size: 22px; font-weight: 800; letter-spacing: -.3px; }
+  .banner p { color: var(--muted); font-weight: 500; font-size: 14px; margin-top: 2px; }
+  .progress { height: 4px; border-radius: 4px; background: var(--line); margin: 12px 16px 6px; overflow: hidden; position: relative; }
+  .progress::after { content: ""; position: absolute; inset: 0; width: 40%; background: var(--g); animation: load 1.4s ease-in-out infinite; }
+  @keyframes load { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+  .drv { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+  .ava { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg,#cfd8d3,#9fb0a7); display: grid; place-items: center; font-weight: 800; font-size: 20px; color: #fff; position: relative; flex-shrink: 0; }
+  .ava .rt { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); background: #fff; color: var(--text); border-radius: 99px; font-size: 11.5px; font-weight: 800; padding: 1px 6px; box-shadow: 0 1px 4px rgba(0,0,0,.18); white-space: nowrap; }
+  .drv .t { flex: 1; min-width: 0; }
+  .drv b { font-weight: 700; font-size: 16px; display: block; }
+  .drv small { color: var(--muted); font-weight: 500; font-size: 13.5px; }
+  .plate { border: 2px solid var(--text); border-radius: 7px; padding: 4px 8px 4px 4px; font-weight: 800; font-size: 16px; letter-spacing: .5px; display: flex; align-items: center; gap: 6px; background: #fff; }
+  .plate i { background: #003399; color: #fff; font-style: normal; font-size: 8px; font-weight: 700; padding: 3px 3px; border-radius: 3px; line-height: 1.1; text-align: center; }
+  .acts3 { display: flex; gap: 10px; padding: 6px 16px 10px; }
+  .acts3 button { flex: 1; background: var(--surface); border-radius: 14px; padding: 12px 6px; font-weight: 700; font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .agentpaid { margin: 4px 16px 8px; display: flex; gap: 10px; align-items: center; background: var(--g08); border-radius: 12px; padding: 11px 14px; font-weight: 600; font-size: 13px; color: #1f7a47; }
+
+  /* ---------- AI chat ---------- */
+  .chat::before { content: ""; position: absolute; left: 0; right: 0; top: -50px; height: 50px; background: #fff; }
+  .chat { position: absolute; inset: 50px 0 0 0; background: #fff; z-index: 55; display: flex; flex-direction: column; animation: up .25s ease-out; }
+  .chathead { display: flex; align-items: center; gap: 10px; padding: 8px 14px 12px; border-bottom: 1px solid var(--line); }
+  .logo { width: 38px; height: 38px; border-radius: 12px; background: var(--g); color: #0b2b1a; display: grid; place-items: center; font-size: 19px; font-weight: 900; }
+  .chathead b { font-weight: 800; font-size: 16.5px; display: block; }
+  .chathead small { color: var(--muted); font-weight: 600; font-size: 12px; display: flex; align-items: center; gap: 5px; }
+  .langsw { display: flex; background: var(--surface); border-radius: 99px; padding: 3px; flex-shrink: 0; }
+  .langsw button { padding: 5px 9px; border-radius: 99px; font-weight: 800; font-size: 12px; color: var(--muted); }
+  .langsw button.on { background: #fff; color: var(--gd); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .chathead small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .chathead small i { width: 7px; height: 7px; border-radius: 50%; background: var(--g); display: inline-block; }
+  .msgs { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; scrollbar-width: none; }
+  .msgs::-webkit-scrollbar { display: none; }
+  .msgs > * { flex-shrink: 0; }
+  .sheet.still { animation: none; }
+  .b { max-width: 82%; padding: 10px 14px; border-radius: 18px; font-size: 15px; font-weight: 500; line-height: 1.38; white-space: pre-wrap; }
+  .b.me { align-self: flex-end; background: var(--gd); color: #fff; border-bottom-right-radius: 6px; }
+  .b.ai { align-self: flex-start; background: var(--surface); border-bottom-left-radius: 6px; }
+  .welcome { text-align: center; padding: 24px 10px 8px; }
+  .welcome .logo { width: 60px; height: 60px; border-radius: 18px; margin: 0 auto 12px; font-size: 30px; }
+  .welcome h2 { font-size: 22px; font-weight: 800; }
+  .welcome p { color: var(--muted); font-weight: 500; font-size: 14px; margin-top: 4px; }
+  .sugg { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+  .sugg button { background: var(--g08); color: #1f7a47; padding: 11px 14px; border-radius: 12px; font-weight: 700; font-size: 14px; text-align: left; }
+  .steps { align-self: flex-start; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); padding: 2px 4px; max-width: 92%; }
+  .step { display: flex; gap: 8px; align-items: flex-start; animation: fade .3s; }
+  .step .d { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; margin-top: 1px; display: grid; place-items: center; font-size: 10px; }
+  .step.ok .d { background: var(--gd); color: #fff; }
+  .step.err .d { background: #f04; color: #fff; }
+  .step.run .d { border: 2px solid var(--g16); border-top-color: var(--gd); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ocard { align-self: stretch; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,.06); animation: up .3s ease-out; }
+  .ocard .mini { height: 120px; position: relative; }
+  .ocard .mini .map { border-bottom: 1px solid var(--line); }
+  .ocard .ls { padding: 6px 4px 0; }
+  .ocard .ls .cls { margin: 0; width: 100%; }
+  .ocard .mods { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+  .ocard .sums { padding: 8px 14px; border-top: 1px solid var(--line); }
+  .sum { display: flex; justify-content: space-between; font-weight: 500; color: var(--muted); font-size: 13.5px; padding: 2px 0; }
+  .sum.total { color: var(--text); font-weight: 800; font-size: 16px; padding-top: 6px; }
+  .ocard .pm { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); font-weight: 700; font-size: 14px; }
+  .ocard .acts { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .ocard .note { font-size: 11.5px; color: var(--muted); font-weight: 600; text-align: center; }
+  .ocard.paid { border-color: var(--g); }
+  .paidrow { display: flex; align-items: center; gap: 8px; color: var(--gd); font-weight: 800; justify-content: center; padding: 6px 0; }
+  .composer { display: flex; gap: 8px; align-items: center; padding: 10px 12px 26px; border-top: 1px solid var(--line); }
+  .composer input { flex: 1; background: var(--surface); border: 0; border-radius: 99px; padding: 13px 16px; font: inherit; font-size: 15px; font-weight: 500; outline: none; color: var(--text); }
+  .composer .send { width: 44px; height: 44px; border-radius: 50%; background: var(--gd); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+  .composer .mic { width: 44px; height: 44px; border-radius: 50%; background: var(--surface); color: var(--gd); display: grid; place-items: center; flex-shrink: 0; }
+  .composer .mic.rec { background: #f04; color: #fff; }
+
+  /* ---------- Face ID ---------- */
+  .toast { position: absolute; top: 60px; left: 16px; right: 16px; z-index: 95; background: var(--text); color: #fff; padding: 12px 14px; border-radius: 12px; font-weight: 600; font-size: 14px; animation: up .25s; }
+
+  /* ---------- under the hood (desktop only) ---------- */
+  .hood { width: 440px; height: 844px; background: #0f1a15; color: #cfeadb; border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.2); }
+  .hood.off { display: none; }
+  .hood h2 { font-family: "DM Sans", sans-serif; font-size: 18px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .hood h2 small { margin-left: auto; font-size: 11px; color: #7fd8a8; font-weight: 700; }
+  .hood h4 { font-family: "DM Sans", sans-serif; color: #7fd8a8; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; margin-bottom: 6px; }
+  .hood .pane { background: #16241d; border-radius: 12px; padding: 12px; overflow: auto; }
+  .hood .trace { flex: 1; }
+  .hood .ev { border-left: 2px solid #34d186; padding: 2px 0 2px 8px; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
+  .hood .ev b { color: #fff; }
+  .hood .ev.pay { border-color: #ffc24b; }
+  .hood .ev.st { border-color: #3a4a42; color: #7a8a82; }
+  .hood .tag { display: inline-block; background: #22332a; padding: 1px 6px; border-radius: 4px; margin: 2px 4px 2px 0; }
+  .hood .s-await { color: #ffc24b; } .hood .s-captured { color: #34d186; } .hood .s-cancelled { color: #ff6b6b; }
+  .hood .reset { margin-left: 8px; background: #22332a; color: #cfeadb; padding: 4px 10px; border-radius: 6px; font-family: "DM Sans", sans-serif; font-weight: 700; font-size: 11px; }
+  .hoodtoggle { position: fixed; right: 16px; bottom: 16px; background: #0f1a15; color: #fff; padding: 8px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; z-index: 200; }
+  @media (max-width: 960px) { .hood, .hoodtoggle { display: none !important; } }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="island"></div>
+    <div class="screen" id="screen">
+      <div class="statusbar"><span>9:41</span><span class="icons">
+        <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#000"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#000"/><rect x="10" y="2.5" width="3" height="9.5" rx="1" fill="#000"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#000"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2.5c2.3 0 4.4.9 6 2.4l1.2-1.3A10.4 10.4 0 0 0 8 .7 10.4 10.4 0 0 0 .8 3.6L2 4.9a8.6 8.6 0 0 1 6-2.4Zm0 3.6c1.3 0 2.5.5 3.4 1.3l1.2-1.3A6.6 6.6 0 0 0 8 4.3a6.6 6.6 0 0 0-4.6 1.8l1.2 1.3c.9-.8 2.1-1.3 3.4-1.3Zm0 3.6c.4 0 .8.2 1.1.4L8 11.3 6.9 10.1c.3-.2.7-.4 1.1-.4Z" fill="#000"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#000" opacity=".4" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#000"/><rect x="25" y="4.5" width="1.5" height="4" rx=".75" fill="#000" opacity=".4"/></svg>
+      </span></div>
+      <div class="map" id="map"></div>
+      <div id="ui"></div>
+    </div>
+  </div>
+
+  <aside class="hood" id="hood">
+    <h2>✦ Under the hood <small>AgentPay · tenant: bolt</small></h2>
+    <div class="pane"><h4>Agent</h4><div id="hood-agent">…</div></div>
+    <div class="pane trace"><h4>Live agent trace</h4><div id="hood-trace"><span style="color:#7a8a82">Waiting for a message…</span></div></div>
+    <div class="pane"><h4>Bolt tenant memory (isolated) <button class="reset" id="reset">Reset demo</button></h4><div id="hood-mem"></div></div>
+    <div class="pane"><h4>Payments (state machine)</h4><div id="hood-pay"></div></div>
+  </aside>
+  <button class="hoodtoggle" id="hoodtoggle">Hide under the hood</button>
+
+<script src="/sdk.js"></script>
+<script src="/agentpay-ui.js"></script>
+<script>
+// ======================= language (chat, payment, ride) =======================
+let LANG = localStorage.getItem("agentpay_lang") || "en";
+const L = {
+  en: {
+    sub: (a) => `Books & pays rides for you · pickup ${a}`, title: "Where are you going?",
+    intro: "Tell me the destination and the ride you want — I'll price it, book it and get it ready to pay.",
+    chips: ["Order a taxi from current location (freeuni) to didube metro station", "Take me to Tbilisi airport with Bolt Comfort", "Book a Bolt XL to Tbilisi Mall with a child seat"],
+    ph: "Message Bolt AI…", pickup: "Pickup:", dropoff: "Drop-off:", km: "km", min: "min", away: (n) => `Driver ${n} min away`,
+    fare: "Ride fare", fee: "Ride fee", booking: "Booking fee", total: "Total", change: "Change", confirm: (c, a) => `Confirm ${c} · ${a}`,
+    review: "Review ride", safe: "🔒 Nothing is charged until you confirm.", replaced: "Replaced by the updated ride below", paidRow: (a) => `✓ Paid ${a} · ride booked`,
+    done: (c, n, loc) => `Done! Finding your ${c} driver now — pickup in about ${n} min at ${loc}.`, conn: "⚠ Connection problem. Please try again.",
+    s0: ["Looking for a driver…", (c) => `Matching you with the nearest ${c} car`],
+    s2: [(n) => `Driver arrives in ${n} min`, (d, loc) => `${d} is on the way · meet at ${loc}, main entrance`],
+    s3: ["Driver has arrived", (car, plate) => `${car} · ${plate} is waiting for you`],
+    acts: ["Contact", "Safety", "Share trip"], agentpaid: "✦ Booked &amp; paid by Bolt AI in one message · you confirmed with Face ID",
+    trip: (k, m) => `${k} km · ~${m} min trip`, paid: (pm) => `Paid · ${pm}`,
+    drivers: { economy: ["Levan M.", "White"], comfort: ["Giorgi K.", "Silver"], xl: ["Nika B.", "Grey"], premium: ["Davit T.", "Black"] },
+  },
+  ka: {
+    sub: (a) => `ჯავშნის და იხდის თქვენთვის · აყვანა: ${a}`, title: "სად მიდიხართ?",
+    intro: "მითხარით, სად მიდიხართ და რომელი კლასი გსურთ — დავთვლი ფასს, დავჯავშნი და მოვამზადებ გადასახდელად.",
+    chips: ["გამომიძახე ტაქსი ჩემი ლოკაციიდან (თავისუფალი უნივერსიტეტი) დიდუბის მეტრომდე", "წამიყვანე თბილისის აეროპორტში Bolt Comfort-ით", "დამიჯავშნე Bolt XL თბილისი მოლამდე ბავშვის სავარძლით"],
+    ph: "მისწერეთ Bolt AI-ს…", pickup: "აყვანა:", dropoff: "დანიშნულება:", km: "კმ", min: "წთ", away: (n) => `მძღოლი ${n} წუთის სავალზეა`,
+    fare: "მგზავრობის ღირებულება", fee: "მგზავრობის საკომისიო", booking: "ჯავშნის საფასური", total: "სულ", change: "შეცვლა", confirm: (c, a) => `დაადასტურეთ ${c} · ${a}`,
+    review: "მგზავრობის გადახედვა", safe: "🔒 თანხა არ ჩამოიჭრება, სანამ არ დაადასტურებთ.", replaced: "ჩანაცვლდა ქვემოთ განახლებული მგზავრობით", paidRow: (a) => `✓ გადახდილია ${a} · მგზავრობა დაჯავშნილია`,
+    done: (c, n, loc) => `მზადაა! ვეძებ ${c} მძღოლს — მოვა დაახლოებით ${n} წუთში (${loc}).`, conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
+    s0: ["ვეძებთ მძღოლს…", (c) => `ვარჩევთ უახლოეს ${c} მანქანას`],
+    s2: [(n) => `მძღოლი მოვა ${n} წუთში`, (d, loc) => `${d} გზაშია · შეხვედრის ადგილი: ${loc}, მთავარი შესასვლელი`],
+    s3: ["მძღოლი მოვიდა", (car, plate) => `${car} · ${plate} გელოდებათ`],
+    acts: ["დაკავშირება", "უსაფრთხოება", "გაზიარება"], agentpaid: "✦ დაჯავშნა და გადაიხადა Bolt AI-მ ერთი შეტყობინებით · თქვენ დაადასტურეთ Face ID-ით",
+    trip: (k, m) => `${k} კმ · ~${m} წთ მგზავრობა`, paid: (pm) => `გადახდილია · ${pm}`,
+    drivers: { economy: ["ლევან მ.", "თეთრი"], comfort: ["გიორგი კ.", "ვერცხლისფერი"], xl: ["ნიკა ბ.", "ნაცრისფერი"], premium: ["დავით თ.", "შავი"] },
+  },
+};
+const t = () => L[LANG];
+const ka = () => LANG === "ka";
+const lopts = (l) => (ka() && l.optionsKa) || l.options;
+const dname = (d, lang = LANG) => (lang === "ka" && d.ka?.name) || d.name;
+const locLabel = (lang = LANG) => (lang === "ka" && S.data.location.labelKa) || S.data.location.label;
+function setLang(l) {
+  LANG = l; localStorage.setItem("agentpay_lang", l); AgentPayUI.lang = l;
+  if (S.chatOpen) { const keep = [...$("#msgs").children].filter((e) => !e.classList.contains("welcome")); closeChat(); chatLog = keep; openChat(); }
+}
+
+// ======================= state =======================
+const USER_ID = "user_123";
+const S = {
+  data: null, screen: "home", destId: null, cls: "economy", opts: new Set(),
+  agentPayment: null, agentSig: null, ride: null, chatOpen: false, busy: false,
+};
+let agent;
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const money = (n) => Number(n).toFixed(2) + " ₾";
+const dest = (id) => S.data.venues.find((v) => v.id === id);
+const item = (id) => S.data.catalog.find((i) => i.id === id);
+const itemsFor = (vid) => S.data.catalog.filter((i) => i.venueId === vid);
+const shortName = (v) => v.id === "tbs_airport" ? "Tbilisi Airport" : v.name;
+const sig = () => JSON.stringify([S.destId, S.cls, [...S.opts].sort()]);
+const curItem = () => itemsFor(S.destId).find((i) => i.meta.cls === S.cls);
+const unitPrice = (it, opts) => it.price + [...opts].reduce((s, o) => s + it.options.find((x) => x.id === o).price, 0);
+
+// ======================= icons =======================
+const I = {
+  menu: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+  back: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  search: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  clock: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  person: '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="7" r="4.5"/><path d="M3 22a9 9 0 0 1 18 0z"/></svg>',
+  locate: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>',
+  cal: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  phone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2"/></svg>',
+  shield: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>',
+  share: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v13M7 8l5-5 5 5M5 14v6h14v-6"/></svg>',
+  send: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>',
+  mic: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  face: '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"><path d="M4 18V10a6 6 0 0 1 6-6h8M46 4h8a6 6 0 0 1 6 6v8M60 46v8a6 6 0 0 1-6 6h-8M18 60h-8a6 6 0 0 1-6-6v-8"/><path d="M22 24v5M42 24v5M32 24v12h-3M24 44c4.5 4 11.5 4 16 0"/></svg>',
+  check: '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26" stroke-width="3.5"/><path d="M20 33l8 8 16-17"/></svg>',
+};
+// side-view car per class (body colour, length)
+function carSvg(cls) {
+  const c = { economy: ["#e9ecea", 0], comfort: ["#cfd6d2", 0], xl: ["#9aa8a0", 6], premium: ["#2b3230", 2] }[cls] || ["#ddd", 0];
+  const L = c[1];
+  return `<svg viewBox="0 0 ${70 + L} 34"><ellipse cx="${35 + L / 2}" cy="30" rx="${32 + L / 2}" ry="3" fill="rgba(0,0,0,.12)"/>
+    <path d="M4 24 Q4 18 10 17 L20 16 L${28 + (cls === "xl" ? 0 : 2)} ${cls === "xl" ? 7 : 9} Q30 7 34 7 L${50 + L} 7 Q${55 + L} 7 ${58 + L} 12 L${62 + L} 16 Q${67 + L} 17 ${67 + L} 22 L${67 + L} 26 L4 26 Z" fill="${c[0]}" stroke="rgba(0,0,0,.25)" stroke-width=".8"/>
+    <path d="M23 16 L31 10 L${42 + L / 2} 10 L${42 + L / 2} 16 Z M${45 + L / 2} 10 L${52 + L} 10 L${57 + L} 16 L${45 + L / 2} 16 Z" fill="#3c4a52" opacity=".85"/>
+    <circle cx="16" cy="26" r="5.2" fill="#222"/><circle cx="16" cy="26" r="2.2" fill="#aaa"/><circle cx="${55 + L}" cy="26" r="5.2" fill="#222"/><circle cx="${55 + L}" cy="26" r="2.2" fill="#aaa"/></svg>`;
+}
+const topCar = `<svg viewBox="0 0 34 34"><g transform="rotate(0 17 17)"><rect x="10" y="3" width="14" height="28" rx="6" fill="#fff" stroke="#191f1c" stroke-width="1.5"/><rect x="12" y="9" width="10" height="6" rx="2" fill="#3c4a52"/><rect x="12" y="21" width="10" height="5" rx="2" fill="#3c4a52"/></g></svg>`;
+
+// ======================= map (stylised Tbilisi in geo space) =======================
+// world coords: x/y in metres-ish so geometry looks right
+const W = (p) => ({ x: (p.lng - 44.70) * 83000, y: (41.80 - p.lat) * 111000 });
+const RIVER = [[41.84, 44.792], [41.82, 44.789], [41.80, 44.787], [41.775, 44.788], [41.755, 44.789], [41.738, 44.793], [41.722, 44.797], [41.708, 44.800], [41.697, 44.806], [41.689, 44.812], [41.680, 44.823], [41.668, 44.836], [41.650, 44.853]];
+const ROADS = [ // main avenues (rough)
+  [[41.8056, 44.768], [41.795, 44.766], [41.7765, 44.766], [41.758, 44.772], [41.738, 44.781], [41.7213, 44.7966], [41.712, 44.792], [41.7003, 44.7955], [41.6934, 44.8015]], // Agmashenebeli Alley → Tsereteli → centre
+  [[41.7101, 44.753], [41.708, 44.764], [41.7035, 44.778], [41.700, 44.791], [41.6934, 44.8015]],              // Chavchavadze → Rustaveli
+  [[41.6934, 44.8015], [41.689, 44.82], [41.684, 44.84], [41.682, 44.87], [41.685, 44.8916], [41.678, 44.92], [41.6692, 44.9547]], // to airport (Kakheti hwy)
+  [[41.7101, 44.753], [41.725, 44.752], [41.745, 44.756], [41.762, 44.762], [41.7765, 44.764]],                // Saburtalo → Digomi
+  [[41.7213, 44.7966], [41.712, 44.792], [41.7003, 44.7955], [41.6934, 44.8015], [41.6885, 44.81]],             // Station → centre → old town
+  [[41.7213, 44.7966], [41.73, 44.775], [41.733, 44.755], [41.735, 44.735]],
+  [[41.70, 44.73], [41.705, 44.745], [41.7101, 44.753]],
+  [[41.66, 44.80], [41.672, 44.815], [41.68, 44.823], [41.69, 44.84], [41.70, 44.86], [41.72, 44.88]],
+];
+const PARKS = [[41.809, 44.762, 300], [41.79, 44.775, 260], [41.7101, 44.751, 380], [41.695, 44.786, 260], [41.735, 44.765, 300], [41.706, 44.79, 180], [41.688, 44.80, 220]];
+// city blocks: two slightly rotated families of streets anchored to the world, broken up with dash patterns
+function streetGrid(w, h, proj, mpp) {
+  const o = proj({ lat: 41.70, lng: 44.80 });
+  const step = [120, 240, 480, 960, 1920].find((m) => m * mpp >= 26) || 1920; // metres between streets
+  const sp = step * mpp, D = Math.hypot(w, h);
+  let out = "";
+  for (const [ang, seed] of [[-22, 3], [68, 11]]) {
+    const a = ang * Math.PI / 180, nx = Math.cos(a), ny = Math.sin(a);
+    const c0 = (w / 2 - o.x) * nx + (h / 2 - o.y) * ny;
+    const i0 = Math.floor((c0 - D / 2) / sp), i1 = Math.ceil((c0 + D / 2) / sp);
+    for (let i = i0; i <= i1; i++) {
+      const off = i * sp, t = (w / 2 - o.x) * -ny + (h / 2 - o.y) * nx; // slide along the street to the viewport
+      const cx = o.x + nx * off - ny * t, cy = o.y + ny * off + nx * t;
+      const r = Math.abs(Math.sin(i * 12.9898 + seed) * 43758.5453) % 1;
+      const dash = `${(60 + r * 140).toFixed(0)} ${(r * 50).toFixed(0)} ${(30 + r * 90).toFixed(0)} ${(10 + r * 30).toFixed(0)}`;
+      out += `<path d="M${cx - ny * D} ${cy + nx * D} L${cx + ny * D} ${cy - nx * D}" stroke-dasharray="${dash}" stroke-width="${r > .8 ? 5 : 3}"/>`;
+    }
+  }
+  return `<g stroke="#fff" stroke-linecap="butt" fill="none">${out}</g>`;
+}
+// fit a set of geo points into the visible part of the map (above the sheet)
+function makeProj(points, w, h, pad) {
+  const ws = points.map(W);
+  const minX = Math.min(...ws.map((p) => p.x)), maxX = Math.max(...ws.map((p) => p.x));
+  const minY = Math.min(...ws.map((p) => p.y)), maxY = Math.max(...ws.map((p) => p.y));
+  const aw = w - pad.l - pad.r, ah = h - pad.t - pad.b;
+  const k = Math.min(aw / Math.max(maxX - minX, 600), ah / Math.max(maxY - minY, 600), 0.6);
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  return (p) => { const q = W(p); return { x: pad.l + aw / 2 + (q.x - cx) * k, y: pad.t + ah / 2 + (q.y - cy) * k }; };
+}
+// route polyline between pickup and destination along the main roads (roughly)
+function routeFor(d) {
+  const P = S.data.location, pt = (a) => ({ lat: a[0], lng: a[1] });
+  // backbone from Freeuni down Agmashenebeli Alley / Tsereteli Ave to the centre, then out east
+  const A = [[41.795, 44.766]], B = [...A, [41.7765, 44.766], [41.758, 44.772]], DID = [...B, [41.738, 44.781]];
+  const CEN = [...DID, [41.7213, 44.7966], [41.712, 44.792], [41.7003, 44.7955]], FRE = [...CEN, [41.6934, 44.8015]];
+  const HWY = [...FRE, [41.689, 44.82], [41.684, 44.84], [41.682, 44.87]];
+  const vias = {
+    didube_metro: B, tbilisi_mall: A, central_station: DID, biltmore: CEN.slice(0, -1), freedom_sq: CEN,
+    abanotubani: FRE, east_point: HWY, tbs_airport: [...HWY, [41.685, 44.8916], [41.678, 44.92]],
+  }[d.id] || [];
+  return [P, ...vias.map(pt), d];
+}
+function drawMap(el, opts = {}) {
+  const w = el.clientWidth || 368, h = el.clientHeight || 772;
+  const P = S.data.location, d = opts.dest;
+  const route = d ? routeFor(d) : null;
+  const pts = route || [P, { lat: P.lat + 0.008, lng: P.lng + 0.012 }, { lat: P.lat - 0.008, lng: P.lng - 0.012 }];
+  const DRV = { lat: P.lat + 0.012, lng: P.lng + 0.018 };
+  const proj = makeProj(opts.driver ? [P, DRV] : pts, w, h, opts.pad || { t: 110, b: 360, l: 40, r: 40 });
+  const path = (arr) => arr.map((a, i) => { const p = proj(Array.isArray(a) ? { lat: a[0], lng: a[1] } : a); return (i ? "L" : "M") + p.x.toFixed(1) + " " + p.y.toFixed(1); }).join(" ");
+  const k = proj({ lat: 41.70, lng: 44.80 }), k2 = proj({ lat: 41.70, lng: 44.801 }), mpp = (k2.x - k.x) / 83; // px per metre
+  let svg = `<svg viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="#eef0ec"/>`;
+  svg += PARKS.map(([la, ln, r]) => { const p = proj({ lat: la, lng: ln }); return `<ellipse cx="${p.x}" cy="${p.y}" rx="${r * mpp * 1.3}" ry="${r * mpp}" fill="#d4ecd6"/>`; }).join("");
+  svg += `<path d="${path(RIVER)}" stroke="#bcd9ef" stroke-width="${Math.max(6, 90 * mpp)}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  svg += streetGrid(w, h, proj, mpp);
+  svg += `<g stroke="#fde7b0" stroke-width="${Math.max(4, 26 * mpp)}" fill="none" stroke-linecap="round" stroke-linejoin="round">${ROADS.map((r) => `<path d="${path(r)}"/>`).join("")}</g>`;
+  svg += `<g stroke="#f3cf73" stroke-width="1" fill="none" opacity=".6">${ROADS.map((r) => `<path d="${path(r)}"/>`).join("")}</g>`;
+  if (route) svg += `<path d="${path(route)}" stroke="#191f1c" stroke-width="5.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  svg += `<text x="${proj({ lat: 41.729, lng: 44.794 }).x}" y="${proj({ lat: 41.729, lng: 44.794 }).y}" font-size="10" fill="#7ca5c4" font-family="DM Sans" font-style="italic">Mtkvari</text>`;
+  svg += `</svg>`;
+  let html = svg;
+  const pp = proj(P);
+  if (opts.pulse) html += `<div class="pulse" style="left:${pp.x}px;top:${pp.y}px"></div><div class="pulse b" style="left:${pp.x}px;top:${pp.y}px"></div>`;
+  html += `<div class="pin ${d ? "" : "me"}" style="left:${pp.x}px;top:${pp.y + 10}px">${opts.labels !== false ? `<div class="lbl" style="position:relative;left:${Math.max(0, (locLabel().length * 7.6 + 30) / 2 + 6 - pp.x)}px">${d && opts.pickupEta ? `<b class="eta">${opts.pickupEta} min</b>` : ""}${esc(locLabel())}</div>` : ""}<div class="dot"></div></div>`;
+  if (d) { const dp = proj(d); html += `<div class="pin" style="left:${dp.x}px;top:${dp.y + 9}px">${opts.labels !== false ? `<div class="lbl">${esc(shortName(d))}<small>· ${d.etaMin} min</small></div>` : ""}<div class="sq"></div></div>`; }
+  if (opts.cars) {
+    const seeds = [[0.004, 0.006], [-0.005, 0.009], [0.007, -0.006], [-0.003, -0.008], [0.009, 0.002]];
+    html += seeds.slice(0, opts.cars).map(([a, b], i) => { const p = proj({ lat: P.lat + a, lng: P.lng + b }); return `<div class="car" style="left:${p.x}px;top:${p.y}px;transform:rotate(${i * 67}deg)">${topCar}</div>`; }).join("");
+  }
+  if (opts.driver) {
+    const from = proj(DRV);
+    html = html.replace('</svg>', `<path d="M${from.x} ${from.y} L${pp.x} ${pp.y}" stroke="#2a9d5c" stroke-width="4" stroke-dasharray="2 8" stroke-linecap="round" fill="none"/></svg>`);
+    html += `<div class="car" id="drivercar" style="left:${from.x}px;top:${from.y}px;transform:rotate(-120deg)">${topCar}</div>`;
+    el.innerHTML = html;
+    el._toPickup = { from, to: pp };
+    return;
+  }
+  el.innerHTML = html;
+}
+
+// ======================= screens =======================
+function render() {
+  const ui = $("#ui");
+  if (S.screen === "home") { drawMap($("#map"), { cars: 5, pad: { t: 80, b: 470, l: 40, r: 40 } }); ui.innerHTML = homeView(); }
+  if (S.screen === "ride") { const d = dest(S.destId); drawMap($("#map"), { dest: d, pickupEta: curItem().meta.pickupEta, pad: { t: 130, b: 500, l: 90, r: 90 } }); ui.innerHTML = rideView(); }
+  if (S.screen === "trip") { ui.innerHTML = tripView(); tripMap(S.ride.phase); }
+}
+function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render(); }
+let lastScreen = null;
+new MutationObserver(() => { const sh = document.querySelector("#ui .sheet"); if (sh && lastScreen === S.screen) sh.classList.add("still"); lastScreen = S.screen; }).observe(document.getElementById("ui"), { childList: true });
+
+function homeView() {
+  const P = S.data.location;
+  const recent = ["didube_metro", "tbs_airport", "freedom_sq", "tbilisi_mall", "central_station", "east_point", "abanotubani", "biltmore"].map(dest);
+  return `
+  <button class="mapbtn" style="left:16px;top:58px">${I.menu}</button>
+  <button class="aipill" onclick="openChat()"><span class="sp">✦</span>Ask Bolt AI</button>
+  <button class="mapbtn" style="right:16px;bottom:476px">${I.locate}</button>
+  <div class="sheet" style="height:460px"><div class="grab"></div>
+    <button class="where" onclick="openChat()">${I.search} Where to?<span class="ai">✦ AI</span></button>
+    <div class="sc">
+      ${recent.map((d) => `<button class="place" onclick="pickDest('${d.id}')"><span class="ic">${I.clock}</span><span class="t"><b>${esc(d.name)}</b><small>${esc(d.meta.address)}, Tbilisi</small></span><span class="km">${d.meta.roadKm} km</span></button>`).join("")}
+      <button class="promo" onclick="openChat()"><span class="sp">✦</span><span><b>Just say where you're going</b><span>Bolt AI picks the ride, prices it and books it — you confirm with Face ID.</span></span></button>
+      <div class="tiles"><div class="tile on"><span class="e">🚗</span>Ride</div><div class="tile"><span class="e">🛴</span>Scooters</div><div class="tile"><span class="e">🚙</span>Drive</div><div class="tile"><span class="e">🍔</span>Food</div></div>
+    </div>
+  </div>`;
+}
+
+function routeBlock(d, extra, style = "", lang = LANG) {
+  const T = L[lang];
+  return `<div class="route" style="${style}"><div class="rail"><i></i><s></s><i class="d"></i></div><div class="ad">
+    <div><small>${T.pickup}</small> ${esc(locLabel(lang))}</div>
+    <div><small>${T.dropoff}</small> ${esc(dname(d, lang))}${extra ? ` <small>· ${extra}</small>` : ""}</div></div></div>`;
+}
+function pickDest(id) { go("ride", { destId: id, cls: S.destId === id ? S.cls : "economy", opts: S.destId === id ? S.opts : new Set() }); }
+
+function rideView() {
+  const d = dest(S.destId), P = S.data.location, items = itemsFor(d.id), it = curItem();
+  const now = new Date(2026, 9, 18, 9, 41);
+  const arr = (min) => { const t = new Date(now.getTime() + min * 60000); return t.getHours() + ":" + String(t.getMinutes()).padStart(2, "0"); };
+  const unit = unitPrice(it, S.opts);
+  return `
+  <button class="mapbtn" style="left:16px;top:58px" onclick="go('home')">${I.back}</button>
+  <div class="sheet" style="height:492px"><div class="grab"></div>
+    <div class="sc">
+      ${routeBlock(d, `${d.meta.roadKm} km · ~${d.etaMin} min`, "", "en")}
+      ${items.map((i) => `<button class="cls ${i.id === it.id ? "on" : ""}" data-cls="${i.meta.cls}">${carSvg(i.meta.cls)}
+        <span class="t"><b>${esc(i.meta.label)} <span class="seat">${I.person}${i.meta.seats}</span></b><small>${i.meta.pickupEta} min · ${arr(i.meta.pickupEta + d.etaMin)} dropoff</small></span>
+        <span class="pr">${money(unitPrice(i, S.opts))}${i.meta.cls === "economy" ? `<small>Best price</small>` : ""}</span></button>`).join("")}
+      <div class="sh" style="font-size:14px;padding-top:12px">Ride preferences</div>
+      <div class="prefs">${it.options.map((o) => `<button class="pref ${S.opts.has(o.id) ? "on" : ""}" data-o="${o.id}">${esc(o.name)}${o.price ? ` +${o.price} ₾` : ""}</button>`).join("")}</div>
+    </div>
+    <button class="rowx"><span class="visa">VISA</span>${esc(S.data.paymentMethod)}<small>· Personal</small><span class="chev">›</span></button>
+    <div class="foot"><button class="btn" id="selbtn">Select ${esc(it.meta.label)}</button><button class="sched">${I.cal}</button></div>
+  </div>`;
+}
+document.addEventListener("click", (e) => {
+  const c = e.target.closest("#ui [data-cls]"); if (c) { S.cls = c.dataset.cls; render(); return; }
+  const o = e.target.closest("#ui [data-o]"); if (o) { S.opts.has(o.dataset.o) ? S.opts.delete(o.dataset.o) : S.opts.add(o.dataset.o); render(); return; }
+  if (e.target.closest("#selbtn")) selectRide();
+});
+async function selectRide() {
+  $("#selbtn").disabled = true;
+  let intent = S.agentPayment && S.agentSig === sig() ? S.agentPayment : null;
+  if (!intent) {
+    const r = await agent.createOrder([{ item_id: curItem().id, qty: 1, option_ids: [...S.opts] }]);
+    if (r.error) { toast(r.error); $("#selbtn").disabled = false; return; }
+    intent = r;
+  }
+  const p = await pay(intent);
+  if (p) startRide(p, false); else $("#selbtn") && ($("#selbtn").disabled = false);
+}
+
+// ======================= payment: AgentPayUI (Face ID → SCA → 3-D Secure → bank auth → capture) =======================
+async function pay(intent) {
+  const r = await AgentPayUI.pay({ root: $("#screen"), agent, payment: intent, accent: "#2a9d5c", merchant: "Bolt" });
+  refreshHood();
+  return r;
+}
+
+// ======================= live ride: ~2 s search → driver assigned, car drives to the pickup → driver has arrived =======================
+const DRIVERS = { economy: ["Levan M.", "Toyota Prius", "White", "LM-318-KT", 4.91], comfort: ["Giorgi K.", "Toyota Camry", "Silver", "GK-482-BL", 4.95], xl: ["Nika B.", "Toyota Sienna", "Grey", "NB-907-XL", 4.9], premium: ["Davit T.", "Mercedes-Benz E-Class", "Black", "DT-001-PR", 4.98] };
+let rideTimers = [];
+function startRide(p, viaAgent) {
+  const it = item(p.lines[0].itemId), d = dest(p.venue.id);
+  const [, car, , plate, rating] = DRIVERS[it.meta.cls] || DRIVERS.economy;
+  const [name, color] = t().drivers[it.meta.cls] || t().drivers.economy;
+  S.ride = { p, viaAgent, it, d, drv: { name, car, color, plate: plate.replace(/-/g, " "), rating }, phase: 0 };
+  S.agentPayment = null;
+  closeChat();
+  rideTimers.forEach(clearTimeout); rideTimers = [];
+  go("trip");
+  const pick = locLabel(), eta = it.meta.pickupEta, T0 = t();
+  const head = [
+    [T0.s0[0], T0.s0[1](it.meta.label)],
+    null,
+    [T0.s2[0](eta), T0.s2[1](name, pick)],
+    [T0.s3[0], T0.s3[1](`${color} ${car}`, S.ride.drv.plate)],
+  ];
+  const T = (ms, f) => rideTimers.push(setTimeout(() => S.screen === "trip" && f(), ms));
+  const phase = (i) => {
+    S.ride.phase = i;
+    $("#tt").textContent = head[i][0]; $("#ts").textContent = head[i][1];
+    $("#tprog").style.display = i === 0 ? "" : "none";
+    $("#tdrv").style.display = i === 0 ? "none" : "";
+    tripMap(i);
+  };
+  T(2000, () => phase(2));            // ~2 s search → driver assigned, car starts driving to the pickup
+  T(2000 + 6200, () => phase(3));     // car reaches the pickup → "Driver has arrived"
+}
+function tripMap(i) {
+  const m = $("#map"), d = S.ride.d, pad = { t: 130, b: 500, l: 80, r: 80 };
+  if (i === 0) return drawMap(m, { pulse: true, cars: 3, labels: false, pad: { t: 120, b: 470, l: 40, r: 40 } });
+  drawMap(m, { dest: d, driver: true, pad });
+  const c = $("#drivercar"), tp = m._toPickup;
+  if (i === 3) { c.style.transition = "none"; c.style.left = tp.to.x + "px"; c.style.top = tp.to.y + "px"; return; }
+  c.style.transition = "left 6s ease-in-out, top 6s ease-in-out";
+  requestAnimationFrame(() => requestAnimationFrame(() => { c.style.left = tp.to.x + "px"; c.style.top = tp.to.y + "px"; }));
+}
+function tripView() {
+  const { p, viaAgent, it, d, drv } = S.ride;
+  return `<button class="mapbtn" style="left:16px;top:58px" onclick="go('home')">${I.back}</button>
+  <div class="sheet" style="max-height:480px"><div class="grab"></div><div class="sc">
+    <div class="banner"><h2 id="tt">${esc(t().s0[0])}</h2><p id="ts">${esc(t().s0[1](it.meta.label))}</p></div>
+    <div class="progress" id="tprog"></div>
+    <div id="tdrv" style="display:none">
+      <div class="drv"><div class="ava">${drv.name[0]}<span class="rt">★ ${drv.rating}</span></div>
+        <div class="t"><b>${esc(drv.name)}</b><small>${esc(drv.color)} ${esc(drv.car)}</small></div>
+        <div style="text-align:right"><div class="plate"><i>GE</i>${drv.plate}</div><small style="color:var(--muted);font-weight:600;font-size:12px">${esc(it.meta.label)}</small></div></div>
+      <div class="acts3"><button>${I.phone}${t().acts[0]}</button><button>${I.shield}${t().acts[1]}</button><button>${I.share}${t().acts[2]}</button></div>
+    </div>
+    ${viaAgent ? `<div class="agentpaid">${t().agentpaid}</div>` : ""}
+    ${routeBlock(d, t().trip(d.meta.roadKm, d.etaMin), "padding-top:8px")}
+    <div style="padding:0 16px 6px"><div class="sum total"><span>${esc(t().paid(p.paymentMethod))}</span><span>${money(p.total)}</span></div></div>
+  </div></div>`;
+}
+
+// ======================= AI chat =======================
+function openChat(prefill) {
+  if (S.chatOpen) return;
+  S.chatOpen = true;
+  const c = document.createElement("div");
+  c.className = "chat"; c.id = "chat";
+  c.innerHTML = `
+    <div class="chathead"><button onclick="closeChat()">${I.back}</button><div class="logo">✦</div>
+      <div style="flex:1;min-width:0"><b>Bolt AI</b><small><i></i>${esc(t().sub(locLabel()))}</small></div>
+      <div class="langsw"><button class="${LANG === "en" ? "on" : ""}" onclick="setLang('en')">EN</button><button class="${LANG === "ka" ? "on" : ""}" onclick="setLang('ka')">ქარ</button></div></div>
+    <div class="msgs" id="msgs">
+      <div class="welcome"><div class="logo">✦</div><h2>${esc(t().title)}</h2><p>${esc(t().intro)}</p>
+        <div class="sugg">${t().chips.map((c) => `<button>${esc(c)}</button>`).join("")}</div></div>
+    </div>
+    <form class="composer" id="composer"><button type="button" class="mic" id="mic">${I.mic}</button><input id="q" placeholder="${esc(t().ph)}" autocomplete="off" /><button class="send">${I.send}</button></form>`;
+  $("#screen").appendChild(c);
+  c.querySelectorAll(".sugg button").forEach((b) => b.onclick = () => send(b.textContent));
+  $("#composer").onsubmit = (e) => { e.preventDefault(); send($("#q").value); };
+  setupMic();
+  if (chatLog.length) { $(".welcome").remove(); chatLog.forEach((el) => $("#msgs").appendChild(el)); scrollChat(); }
+  if (prefill) $("#q").value = prefill;
+  setTimeout(() => $("#q")?.focus(), 250);
+}
+function closeChat() {
+  const c = $("#chat");
+  if (c) { chatLog = [...$("#msgs").children].filter((e) => !e.classList.contains("welcome")); c.remove(); }
+  S.chatOpen = false;
+}
+let chatLog = [];
+const scrollChat = () => { const m = $("#msgs"); if (m) m.scrollTop = m.scrollHeight; };
+function bubble(cls, text) { const b = document.createElement("div"); b.className = "b " + cls; b.textContent = text; $("#msgs").appendChild(b); scrollChat(); return b; }
+
+async function send(text) {
+  text = text.trim();
+  if (!text || S.busy) return;
+  S.busy = true;
+  if (/[\u10A0-\u10FF]/.test(text) !== ka()) { LANG = ka() ? "en" : "ka"; localStorage.setItem("agentpay_lang", LANG); AgentPayUI.lang = LANG; }
+  $("#q").value = "";
+  $(".welcome")?.remove();
+  bubble("me", text);
+  const tb = AgentPayUI.thinking($("#msgs"), { accent: "#2a9d5c", onUpdate: scrollChat });
+  const replyHolder = document.createElement("div"); replyHolder.style.display = "contents"; $("#msgs").appendChild(replyHolder);
+  hoodClear(text);
+  await agent.send(text, (e) => {
+    hoodEvent(e);
+    if (e.type === "status") tb.status(e.text);
+    if (e.type === "thinking") tb.thought(e.text);
+    if (e.type === "tool") tb.step(e.label, !e.result?.error);
+    if (e.type === "payment") tb.settled().then(() => orderCard(e.payment));
+    if (e.type === "reply" && e.text) tb.settled().then(() => { const b = document.createElement("div"); b.className = "b ai"; b.textContent = e.text; replyHolder.appendChild(b); scrollChat(); });
+    if (e.type === "error") tb.settled().then(() => bubble("ai", "⚠ " + e.text));
+    if (e.type === "done") tb.done();
+  }).catch(() => { tb.done(); bubble("ai", t().conn); });
+  await tb.settled();
+  S.busy = false;
+  refreshHood();
+}
+
+function orderCard(p) {
+  // Mirror the agent's proposal into the app's own ride picker, so "Review ride" shows the same selection.
+  const l = p.lines[0], it = item(l.itemId);
+  S.destId = p.venue.id; S.cls = it.meta.cls;
+  S.opts = new Set(l.options.map((n) => it.options.find((o) => o.name === n).id));
+  S.agentPayment = p; S.agentSig = sig();
+  document.querySelectorAll(".ocard:not(.paid) .acts").forEach((a) => a.innerHTML = `<div class="note">${t().replaced}</div>`);
+  const d = dest(p.venue.id);
+  const card = document.createElement("div");
+  card.className = "ocard";
+  card.innerHTML = `
+    <div class="mini"><div class="map"></div></div>
+    ${routeBlock(d, `${d.meta.roadKm} ${t().km} · ~${d.etaMin} ${t().min}`, "padding-top:12px")}
+    <div class="ls">${p.lines.map((l) => { const i = item(l.itemId); return `<div class="cls on">${carSvg(i.meta.cls)}<span class="t"><b>${l.qty > 1 ? l.qty + "× " : ""}${esc(i.meta.label)} <span class="seat">${I.person}${i.meta.seats}</span></b><small>${t().away(i.meta.pickupEta)}</small>${l.options.length ? `<div class="mods">${esc(lopts(l).join(", "))}</div>` : ""}</span><span class="pr">${money(l.qty * l.unitPrice)}</span></div>`; }).join("")}</div>
+    <div class="sums">
+      <div class="sum"><span>${t().fare}</span><span>${money(p.subtotal)}</span></div>
+      ${p.deliveryFee ? `<div class="sum"><span>${t().fee}</span><span>${money(p.deliveryFee)}</span></div>` : ""}
+      <div class="sum"><span>${t().booking}</span><span>${money(p.serviceFee)}</span></div>
+      <div class="sum total"><span>${t().total}</span><span>${money(p.total)}</span></div>
+    </div>
+    <div class="pm"><span class="visa">VISA</span>${esc(p.paymentMethod)}<span style="margin-left:auto;color:var(--gd)">${t().change}</span></div>
+    <div class="acts">
+      <button class="btn pay">${esc(t().confirm(it.meta.label, money(p.total)))}</button>
+      <button class="btn sec2 edit">${t().review}</button>
+      <div class="note">${t().safe}</div>
+    </div>`;
+  card.querySelector(".pay").onclick = async (ev) => {
+    ev.target.disabled = true;
+    const paid = await pay(p);
+    if (!paid) { ev.target.disabled = false; return; }
+    card.classList.add("paid");
+    card.querySelector(".acts").innerHTML = `<div class="paidrow">${t().paidRow(money(paid.total))}</div>`;
+    bubble("ai", t().done(it.meta.label, it.meta.pickupEta, locLabel()));
+    setTimeout(() => startRide(paid, true), 1400);
+  };
+  card.querySelector(".edit").onclick = () => { closeChat(); go("ride"); };
+  $("#msgs").appendChild(card);
+  requestAnimationFrame(() => drawMap(card.querySelector(".map"), { dest: d, labels: false, pad: { t: 18, b: 14, l: 34, r: 34 } }));
+  scrollChat();
+}
+
+function setupMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const mic = $("#mic");
+  if (!SR) { mic.style.display = "none"; return; }
+  let rec;
+  mic.onclick = () => {
+    if (rec) { rec.stop(); return; }
+    rec = new SR(); rec.lang = ka() ? "ka-GE" : "en-US"; rec.interimResults = true;
+    mic.classList.add("rec");
+    rec.onresult = (e) => { $("#q").value = [...e.results].map((r) => r[0].transcript).join(""); };
+    rec.onend = () => { mic.classList.remove("rec"); rec = null; if ($("#q").value.trim()) send($("#q").value); };
+    rec.start();
+  };
+}
+function toast(t) { const d = document.createElement("div"); d.className = "toast"; d.textContent = t; $("#screen").appendChild(d); setTimeout(() => d.remove(), 3200); }
+
+// ======================= under the hood =======================
+function hoodClear(text) { $("#hood-trace").innerHTML = `<div class="ev st">${USER_ID} → <b>${esc(text)}</b></div>`; }
+function hoodEvent(e) {
+  const t = $("#hood-trace");
+  const div = document.createElement("div");
+  if (e.type === "status") { div.className = "ev st"; div.textContent = "⋯ agent: " + e.text; }
+  else if (e.type === "thinking") { div.className = "ev st"; div.style.color = "#a9dcbf"; div.textContent = "💭 " + e.text; }
+  else if (e.type === "tool") { div.className = "ev"; div.innerHTML = `<b>${esc(e.tool)}</b>(${esc(JSON.stringify(e.args))})\n→ ${esc(JSON.stringify(e.result).slice(0, 420))}`; }
+  else if (e.type === "payment") { div.className = "ev pay"; div.innerHTML = `<b>payment intent</b> ${esc(e.payment.id)} · ${money(e.payment.total)} · <span class="s-await">awaiting_user_confirmation</span>`; }
+  else if (e.type === "reply") { div.className = "ev st"; div.textContent = "reply: " + e.text; }
+  else if (e.type === "error") { div.className = "ev"; div.style.borderColor = "#f04"; div.textContent = "error: " + e.text; }
+  else return;
+  t.appendChild(div);
+  t.parentElement.scrollTop = t.parentElement.scrollHeight;
+}
+async function refreshHood() {
+  const s = await fetch("/debug/bolt").then((r) => r.json());
+  $("#hood-agent").innerHTML = `${s.mode === "gemini" ? `Gemini <b style="color:#fff">${esc(s.model)}</b>` : `<b style="color:#ffc24b">MOCK</b> (no GEMINI_API_KEY)`} · function calling · per-tenant memory`;
+  const u = Object.entries(s.memory);
+  $("#hood-mem").innerHTML = u.length ? u.map(([id, m]) => `<div><b style="color:#fff">${esc(id)}</b> · ${m.history.length} messages<br>${m.preferences.map((p) => `<span class="tag">${esc(p)}</span>`).join("") || '<span style="color:#7a8a82">no saved preferences</span>'}</div>`).join("") : '<span style="color:#7a8a82">empty</span>';
+  $("#hood-pay").innerHTML = s.payments.length ? s.payments.slice(-4).reverse().map((p) => `<div style="margin-bottom:6px">${esc(p.id)} · ${money(p.total)} · ${p.history.map((h) => `<span class="s-${h.status.split("_")[0]}">${h.status}</span><span style="color:#7a8a82">(${h.by})</span>`).join(" → ")}</div>`).join("") : '<span style="color:#7a8a82">none</span>';
+}
+$("#reset").onclick = async () => { await fetch("/debug/bolt/reset", { method: "POST" }); location.reload(); };
+$("#hoodtoggle").onclick = () => { $("#hood").classList.toggle("off"); $("#hoodtoggle").textContent = $("#hood").classList.contains("off") ? "Show under the hood" : "Hide under the hood"; };
+
+// ======================= boot =======================
+(async () => {
+  S.data = await fetch("/demo-data/bolt").then((r) => r.json());
+  agent = AgentPay.init({ key: "pk_bolt_demo", userId: USER_ID, location: S.data.location });
+  AgentPayUI.lang = LANG;
+  render();
+  refreshHood();
+  window.addEventListener("resize", () => !S.chatOpen && S.screen !== "trip" && render());
+  if (new URLSearchParams(location.search).has("clean")) { $("#hood").classList.add("off"); $("#hoodtoggle").textContent = "Show under the hood"; }
+})();
+</script>
+</body>
+</html>

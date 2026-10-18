@@ -1,0 +1,983 @@
+<!doctype html>
+<!-- PROTOTYPE — throwaway investor demo. A swoop.ge look-alike host app (deals & vouchers) with the AgentPay agent built in via /sdk.js.
+     TEST CASE: "Buy 2 vouchers for a private sulfur bath room at the nearest bathhouse"
+     Everything Swoop-specific (deal cards, deal page, checkout, vouchers) is "the client's app"; the agent + payments come from our API. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Swoop — AI deals demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+Georgian:wght@500;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --yellow: #FFE100; --yellow-btn: #FFD800; --yellow-soft: #FFFBE6; --red: #FF1701; --red-logo: #FF0000;
+    --text: #161616; --raisin: #272a37; --muted: #6b7280; --faint: #9ca3af; --line: #e9eaeb; --surface: #f6f6f6;
+    --green: #12b76a; --radius: 12px;
+    font-family: Inter, "Noto Sans Georgian", -apple-system, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: #f1efe6; color: var(--text); min-height: 100vh; display: flex; justify-content: center; align-items: center; gap: 40px; padding: 24px; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  img { display: block; }
+  .ka { font-family: "Noto Sans Georgian", Inter, sans-serif; }
+
+  /* ---------- phone frame ---------- */
+  .phone { width: 390px; height: 844px; border-radius: 54px; background: #111; padding: 11px; box-shadow: 0 30px 80px rgba(0,0,0,.25); flex-shrink: 0; position: relative; }
+  .screen { width: 100%; height: 100%; border-radius: 44px; overflow: hidden; background: #fff; position: relative; display: flex; flex-direction: column; }
+  .island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 120px; height: 34px; background: #111; border-radius: 20px; z-index: 100; }
+  .statusbar { height: 50px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 30px 6px 34px; font-weight: 700; font-size: 15px; flex-shrink: 0; z-index: 40; background: #fff; transition: background .2s; }
+  .statusbar.y { background: var(--yellow); }
+  .statusbar .icons { display: flex; gap: 6px; align-items: center; }
+  @media (max-width: 520px) {
+    body { padding: 0; background: #fff; display: block; }
+    .phone { width: 100vw; height: 100dvh; border-radius: 0; padding: 0; box-shadow: none; }
+    .screen { border-radius: 0; }
+    .island, .statusbar, .hood { display: none !important; }
+    .chat { top: 0 !important; }
+  }
+  .view { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; scrollbar-width: none; }
+  .view::-webkit-scrollbar { display: none; }
+
+  /* ---------- home header (yellow wave) ---------- */
+  .yhead { background: var(--yellow); position: relative; padding: 4px 16px 30px; }
+  .yhead .wave { position: absolute; left: 0; right: 0; bottom: -22px; width: 100%; height: 24px; }
+  .ytop { display: flex; align-items: center; gap: 10px; }
+  .ytop .logo svg { height: 30px; width: auto; display: block; }
+  .ytop .sp { flex: 1; }
+  .ibtn { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,.55); display: grid; place-items: center; }
+  .aibtn { display: flex; align-items: center; gap: 5px; background: var(--text); color: #fff; border-radius: 12px; padding: 8px 10px; font-weight: 700; font-size: 13px; }
+  .aibtn .beta { background: var(--yellow); color: var(--text); border-radius: 6px; font-size: 9.5px; padding: 1px 4px; font-weight: 800; }
+  .lang { font-weight: 700; font-size: 13px; padding: 0 2px; }
+  .yhero { margin-top: 16px; }
+  .yhero h1 { font-size: 25px; line-height: 1.1; font-weight: 900; text-transform: uppercase; letter-spacing: -.3px; }
+  .yhero .loc { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; font-weight: 600; font-size: 13px; color: var(--raisin); }
+  .search { margin-top: 14px; display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 14px; padding: 12px 12px 12px 14px; color: var(--muted); font-weight: 500; font-size: 14.5px; width: 100%; text-align: left; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  .search .ai { margin-left: auto; background: var(--text); color: #fff; font-weight: 700; font-size: 12.5px; padding: 6px 10px; border-radius: 9px; display: flex; gap: 4px; align-items: center; white-space: nowrap; }
+  .cats { display: flex; gap: 10px; overflow-x: auto; padding: 30px 16px 6px; scrollbar-width: none; }
+  .cat { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; flex-shrink: 0; width: 66px; color: var(--raisin); }
+  .cat .ic { width: 58px; height: 58px; border-radius: 18px; background: var(--surface); display: grid; place-items: center; font-size: 27px; }
+  .cat.on .ic { background: var(--yellow); }
+  .tabs { position: sticky; top: 0; background: #fff; z-index: 6; display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
+  .tabs button { padding: 8px 14px; border-radius: 99px; background: var(--surface); font-weight: 600; font-size: 13.5px; white-space: nowrap; color: var(--raisin); }
+  .tabs button.on { background: var(--text); color: #fff; }
+  .moods { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px 14px; scrollbar-width: none; }
+  .moods span { flex-shrink: 0; border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; font-size: 13px; font-weight: 600; color: var(--raisin); }
+  .promo { margin: 4px 16px 20px; border-radius: 16px; padding: 16px; background: var(--text); color: #fff; position: relative; overflow: hidden; display: block; width: calc(100% - 32px); text-align: left; }
+  .promo h3 { font-size: 18px; font-weight: 800; line-height: 1.2; margin-bottom: 5px; max-width: 250px; }
+  .promo p { font-size: 13px; opacity: .8; font-weight: 500; max-width: 240px; }
+  .promo .cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; background: var(--yellow); color: var(--text); padding: 8px 14px; border-radius: 10px; font-weight: 700; font-size: 13.5px; }
+  .promo .spark { position: absolute; right: 10px; top: 4px; font-size: 90px; color: var(--yellow); opacity: .9; }
+  .sec { display: flex; justify-content: space-between; align-items: center; padding: 6px 16px 12px; }
+  .sec h2 { font-size: 19px; font-weight: 900; text-transform: uppercase; letter-spacing: -.2px; display: flex; gap: 8px; align-items: center; }
+  .sec a { color: var(--muted); font-weight: 600; font-size: 13.5px; }
+  .carousel { display: flex; gap: 12px; overflow-x: auto; padding: 0 16px 24px; scrollbar-width: none; }
+  .carousel .dc { width: 258px; flex-shrink: 0; }
+  .grid { padding: 0 16px 120px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid .dimg { height: 112px; }
+  .grid .dc h3 { font-size: 13.5px; }
+  .grid .dbody { padding: 9px; gap: 8px; }
+  .grid .pr b { font-size: 15px; }
+
+  /* ---------- deal card (swoop style) ---------- */
+  .dc { border-radius: 12px; display: flex; flex-direction: column; background: #fff; text-align: left; cursor: pointer; }
+  .dimg { position: relative; height: 160px; border-radius: 12px 12px 0 0; overflow: hidden; background: var(--surface); }
+  .dimg img { width: 100%; height: 100%; object-fit: cover; }
+  .heart { position: absolute; right: 10px; top: 10px; width: 28px; height: 28px; border-radius: 10px; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); display: grid; place-items: center; color: #fff; }
+  .badge { position: absolute; left: 10px; top: 10px; background: var(--red); color: #fff; font-weight: 800; font-size: 15px; border-radius: 9px; padding: 4px 8px; box-shadow: 0 2px 6px rgba(255,23,1,.35); }
+  .cd { position: absolute; left: 10px; bottom: 10px; background: rgba(22,22,22,.78); color: #fff; font-weight: 700; font-size: 11.5px; border-radius: 8px; padding: 3px 7px; display: flex; gap: 4px; align-items: center; font-variant-numeric: tabular-nums; }
+  .dbody { display: flex; flex-direction: column; gap: 10px; padding: 11px 12px 12px; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 12px 12px; flex: 1; }
+  .dc h3 { font-size: 15px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.5em; }
+  .vend { color: var(--muted); font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -4px; }
+  .pr { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .pill { background: var(--red); color: #fff; font-weight: 800; font-size: 12.5px; border-radius: 8px; padding: 3px 7px; }
+  .pr b { font-size: 17px; font-weight: 800; }
+  .pr s { color: var(--faint); font-size: 13px; font-weight: 500; }
+  .sold { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+  .sbar { height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 4px; }
+  .sbar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #FFE100 0%, #FF1701 100%); }
+  .buy { background: var(--yellow-btn); color: var(--text); border-radius: 8px; height: 38px; font-weight: 600; font-size: 14px; display: grid; place-items: center; width: 100%; }
+  .grid .buy { height: 34px; font-size: 13px; }
+
+  /* ---------- bottom nav + floating AI ---------- */
+  .nav { display: flex; justify-content: space-around; border-top: 1px solid var(--line); background: #fff; padding: 8px 0 22px; flex-shrink: 0; }
+  .nav button { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 600; color: var(--faint); width: 70px; }
+  .nav button.on { color: var(--text); }
+  .nav svg { width: 24px; height: 24px; }
+  .fab { position: absolute; right: 16px; bottom: 96px; z-index: 20; background: var(--text); color: #fff; border-radius: 16px; padding: 13px 18px 13px 14px; font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 22px rgba(0,0,0,.3); }
+  .fab b { color: var(--yellow); font-size: 17px; }
+  .fab.hide { display: none; }
+
+  /* ---------- deal page ---------- */
+  .dhero { position: relative; height: 250px; }
+  .dhero img { width: 100%; height: 100%; object-fit: cover; }
+  .dhero .btns { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; justify-content: space-between; }
+  .dhero .dots { position: absolute; bottom: 12px; left: 0; right: 0; display: flex; gap: 5px; justify-content: center; }
+  .dhero .dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.55); }
+  .dhero .dots i:first-child { background: #fff; width: 16px; border-radius: 4px; }
+  .circle { width: 38px; height: 38px; border-radius: 12px; background: #fff; display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+  .dhead { padding: 16px 16px 6px; }
+  .dhead .vrow { display: flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 600; font-size: 13.5px; }
+  .dhead .vrow .av { width: 26px; height: 26px; border-radius: 8px; background: var(--yellow); color: var(--text); display: grid; place-items: center; font-weight: 800; font-size: 12px; }
+  .dhead h1 { font-size: 22px; font-weight: 800; letter-spacing: -.3px; line-height: 1.2; margin-top: 10px; }
+  .pricebox { margin: 14px 16px 0; border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+  .pricebox .top { display: flex; align-items: center; gap: 10px; }
+  .pricebox .big { font-size: 30px; font-weight: 900; letter-spacing: -.5px; }
+  .pricebox s { color: var(--faint); font-weight: 500; font-size: 16px; }
+  .pricebox .pill { font-size: 15px; padding: 4px 9px; margin-left: auto; }
+  .save { color: var(--green); font-weight: 700; font-size: 13.5px; margin-top: 4px; }
+  .timer { display: flex; gap: 6px; align-items: center; margin-top: 12px; font-weight: 600; font-size: 13px; color: var(--muted); }
+  .timer .t { display: flex; gap: 4px; margin-left: auto; }
+  .timer .t span { background: var(--text); color: var(--yellow); border-radius: 7px; padding: 5px 7px; font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; min-width: 32px; text-align: center; }
+  .timer .t em { font-style: normal; color: var(--text); font-weight: 800; align-self: center; }
+  .soldrow { display: flex; justify-content: space-between; margin-top: 12px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .dsec { padding: 18px 16px 4px; }
+  .dsec h3 { font-size: 16px; font-weight: 800; margin-bottom: 8px; text-transform: uppercase; letter-spacing: -.1px; }
+  .dsec p { color: #3f4350; font-size: 14px; line-height: 1.5; font-weight: 500; }
+  .conds { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .conds li { display: flex; gap: 10px; font-size: 14px; font-weight: 500; color: #3f4350; }
+  .conds li i { font-style: normal; width: 22px; text-align: center; }
+  .opt { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); font-weight: 600; font-size: 14.5px; width: 100%; text-align: left; }
+  .box { width: 22px; height: 22px; border-radius: 6px; border: 2px solid #d0d2d6; display: grid; place-items: center; flex-shrink: 0; }
+  .opt.on .box { background: var(--text); border-color: var(--text); }
+  .opt.on .box::after { content: ""; width: 10px; height: 6px; border: 2.5px solid var(--yellow); border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px,-1px); }
+  .opt .x { margin-left: auto; color: var(--muted); font-size: 14px; }
+  .minimap { margin-top: 10px; height: 120px; border-radius: 12px; overflow: hidden; position: relative; background: #eef0ea; }
+  .more { display: flex; gap: 12px; overflow-x: auto; padding: 4px 16px 130px; scrollbar-width: none; }
+  .more .dc { width: 220px; flex-shrink: 0; }
+  .more .dimg { height: 120px; }
+  .buybar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 15; background: #fff; border-top: 1px solid var(--line); padding: 12px 16px 26px; display: flex; gap: 12px; align-items: center; }
+  .stepper { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 10px; padding: 0 12px; font-weight: 800; font-size: 16px; height: 48px; }
+  .stepper button { font-size: 22px; width: 22px; font-weight: 600; }
+  .btn { background: var(--yellow-btn); color: var(--text); border-radius: 10px; height: 48px; padding: 0 16px; font-weight: 700; font-size: 15.5px; flex: 1; display: flex; justify-content: center; align-items: center; gap: 8px; }
+  .btn:disabled { opacity: .5; }
+  .ocard .acts .btn, #cobtn { flex: none; width: 100%; }
+  .btn.dark { background: var(--text); color: #fff; }
+  .btn.ghost { background: var(--surface); }
+
+  /* ---------- checkout ---------- */
+  .pagehead { display: flex; align-items: center; gap: 12px; padding: 8px 16px 12px; position: sticky; top: 0; background: #fff; z-index: 5; border-bottom: 1px solid var(--line); }
+  .pagehead h1 { font-size: 18px; font-weight: 800; }
+  .seg { display: flex; background: var(--surface); border-radius: 12px; padding: 4px; margin-bottom: 10px; }
+  .seg div { flex: 1; text-align: center; padding: 8px; border-radius: 9px; font-weight: 600; font-size: 13.5px; color: var(--muted); }
+  .seg .on { background: #fff; color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  .block { padding: 16px 16px 4px; }
+  .block h3 { font-size: 15px; font-weight: 800; margin-bottom: 10px; text-transform: uppercase; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border-radius: 12px; font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+  .row .ic { width: 36px; height: 36px; border-radius: 10px; background: #fff; display: grid; place-items: center; font-size: 17px; flex-shrink: 0; }
+  .row small { display: block; color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .row .chev { margin-left: auto; color: var(--faint); }
+  .line { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: flex-start; }
+  .line img { width: 58px; height: 44px; border-radius: 8px; object-fit: cover; }
+  .line .q { font-weight: 800; min-width: 24px; }
+  .line .nm { flex: 1; font-weight: 700; font-size: 14px; line-height: 1.3; }
+  .line .mods { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+  .line .prc { font-weight: 800; font-size: 14px; text-align: right; }
+  .line .prc s { display: block; color: var(--faint); font-weight: 500; font-size: 12px; }
+  .sum { display: flex; justify-content: space-between; font-weight: 500; color: var(--muted); font-size: 14px; padding: 4px 0; }
+  .sum.green { color: var(--green); font-weight: 700; }
+  .sum.total { color: var(--text); font-weight: 900; font-size: 17px; padding-top: 8px; }
+
+  /* ---------- vouchers (confirmation) ---------- */
+  .okhead { background: var(--yellow); padding: 18px 16px 34px; text-align: center; position: relative; }
+  .okhead .tick { width: 64px; height: 64px; border-radius: 50%; background: var(--text); color: var(--yellow); display: grid; place-items: center; margin: 0 auto 10px; animation: pop .4s ease-out; }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } }
+  .okhead h1 { font-size: 22px; font-weight: 900; text-transform: uppercase; }
+  .okhead p { font-size: 13.5px; font-weight: 600; color: var(--raisin); margin-top: 4px; }
+  .okhead .wave { position: absolute; left: 0; bottom: -22px; width: 100%; height: 24px; }
+  .vouchers { padding: 34px 16px 10px; display: flex; flex-direction: column; gap: 14px; }
+  .vch { border-radius: 16px; overflow: hidden; box-shadow: 0 6px 20px rgba(0,0,0,.08); border: 1px solid var(--line); animation: up .35s ease-out both; }
+  .vch .vt { display: flex; gap: 10px; padding: 12px; align-items: center; }
+  .vch .vt img { width: 54px; height: 54px; border-radius: 10px; object-fit: cover; }
+  .vch .vt b { font-size: 14px; font-weight: 800; display: block; line-height: 1.25; }
+  .vch .vt small { color: var(--muted); font-size: 12px; font-weight: 600; }
+  .vch .cut { height: 0; border-top: 2px dashed var(--line); margin: 0 14px; position: relative; }
+  .vch .cut::before, .vch .cut::after { content: ""; position: absolute; top: -9px; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 1px solid var(--line); }
+  .vch .cut::before { left: -23px; } .vch .cut::after { right: -23px; }
+  .vch .vb { padding: 12px 14px 14px; display: flex; align-items: center; gap: 12px; }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 18px; font-weight: 800; letter-spacing: 1px; }
+  .vch .vb small { display: block; color: var(--muted); font-size: 11.5px; font-weight: 600; margin-top: 2px; }
+  .qr { width: 64px; height: 64px; margin-left: auto; flex-shrink: 0; }
+  .agentpaid { display: flex; gap: 10px; align-items: center; background: var(--yellow-soft); border: 1px solid #ffe98a; border-radius: 12px; padding: 12px 14px; font-weight: 600; font-size: 13px; color: var(--raisin); margin: 4px 16px 6px; }
+
+  /* ---------- fulfilment (issuing) ---------- */
+  .okhead .tick.spin { background: #161616; position: relative; }
+  .okhead .tick.spin::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 3px solid rgba(22,22,22,.15); border-top-color: #161616; animation: spin 1s linear infinite; }
+  .flive { padding: 34px 16px 30px; display: flex; flex-direction: column; gap: 12px; }
+  .fcodes { display: flex; flex-direction: column; gap: 8px; opacity: .35; transition: opacity .3s; }
+  .fcodes.on { opacity: 1; }
+  .mv { display: flex; gap: 10px; align-items: center; border: 1px dashed #d0d2d6; border-radius: 12px; padding: 8px 10px; background: #fff; }
+  .mv img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; }
+  .mv small { color: var(--muted); font-size: 11px; font-weight: 600; display: block; }
+  .mv .code { font-size: 16px; color: var(--faint); }
+  .mv .code.lock { color: var(--text); animation: pop .3s ease-out; }
+  .partner { border: 1px solid var(--line); border-radius: 14px; padding: 12px; opacity: .35; transition: opacity .3s; background: #fafafa; }
+  .partner.on { opacity: 1; }
+  .ph { display: flex; gap: 10px; align-items: center; }
+  .ph .pl { width: 34px; height: 34px; border-radius: 10px; background: #1d4ed8; color: #fff; display: grid; place-items: center; font-weight: 900; }
+  .ph b { font-size: 14px; font-weight: 800; display: block; }
+  .ph small { color: var(--muted); font-size: 11.5px; font-weight: 600; }
+  .pst { margin-left: auto; font-size: 11.5px; font-weight: 800; padding: 4px 9px; border-radius: 99px; background: var(--surface); color: var(--muted); }
+  .pst.new { background: #fff3c4; color: #8a6d00; } .pst.ok { background: #e3f8ec; color: #0e8a4f; }
+  .pin { margin-top: 10px; font-size: 12.5px; font-weight: 600; color: var(--raisin); background: #fff; border-radius: 10px; padding: 8px 10px; border: 1px solid var(--line); animation: up .3s ease-out; }
+  .pin small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; font-family: ui-monospace, Menlo, monospace; }
+  .pin.ok { border-color: #a6e9c5; background: #f1fcf6; }
+  .slots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; margin-top: 10px; }
+  .slots:empty { display: none; }
+  .slot { text-align: center; font-size: 11.5px; font-weight: 700; padding: 7px 0; border-radius: 8px; background: #fff; border: 1px solid var(--line); color: var(--faint); transition: all .25s; }
+  .slot.busy { background: #f3f3f3; color: #b0b3b8; text-decoration: line-through; }
+  .slot.free { border-color: #12b76a; color: #0e8a4f; background: #f1fcf6; }
+  .slot.pick { background: #161616; color: var(--yellow); border-color: #161616; transform: scale(1.08); }
+  .sms { display: none; border-radius: 14px; background: #f2f2f7; padding: 10px 12px; animation: up .3s ease-out; }
+  .sms.on { display: block; }
+  .smsh { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 700; color: var(--muted); }
+  .smsh .sent { color: #0e8a4f; }
+  .smsb { margin-top: 6px; background: #fff; border-radius: 12px; padding: 8px 10px; font-size: 13px; font-weight: 500; line-height: 1.35; }
+  .booked { margin: 30px 16px 0; display: flex; gap: 12px; align-items: center; border-radius: 14px; padding: 12px; background: #f1fcf6; border: 1px solid #a6e9c5; }
+  .booked .bd { width: 56px; border-radius: 10px; background: #161616; color: var(--yellow); text-align: center; padding: 6px 0; flex-shrink: 0; }
+  .booked .bd small { display: block; font-size: 9.5px; font-weight: 800; color: #fff; letter-spacing: .05em; }
+  .booked .bd b { font-size: 16px; font-weight: 900; }
+  .booked > div:last-child b { font-size: 14px; font-weight: 800; display: block; }
+  .booked > div:last-child small { color: #0e8a4f; font-size: 12px; font-weight: 600; }
+
+  /* ---------- sheets / misc ---------- */
+  @keyframes up { from { transform: translateY(40%); opacity: .4; } }
+  @keyframes fade { from { opacity: 0; } }
+
+  /* ---------- AI chat ---------- */
+  .chat { position: absolute; inset: 50px 0 0 0; background: #fff; z-index: 55; display: flex; flex-direction: column; animation: up .25s ease-out; }
+  .chathead { display: flex; align-items: center; gap: 10px; padding: 8px 14px 12px; border-bottom: 1px solid var(--line); }
+  .chathead .logo { width: 38px; height: 38px; border-radius: 12px; background: var(--yellow); color: var(--text); display: grid; place-items: center; font-size: 19px; font-weight: 900; }
+  .chathead b { font-weight: 800; font-size: 16px; display: flex; gap: 6px; align-items: center; }
+  .chathead b .beta { background: var(--text); color: var(--yellow); border-radius: 6px; font-size: 9.5px; padding: 1px 5px; }
+  .chathead small { color: var(--muted); font-weight: 600; font-size: 12px; display: flex; align-items: center; gap: 5px; }
+  .chathead small i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; }
+  .msgs { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; scrollbar-width: none; background: #fff; }
+  .b { max-width: 82%; padding: 10px 14px; border-radius: 18px; font-size: 14.5px; font-weight: 500; line-height: 1.4; white-space: pre-wrap; }
+  .b.me { align-self: flex-end; background: var(--text); color: #fff; border-bottom-right-radius: 6px; }
+  .b.ai { align-self: flex-start; background: var(--surface); border-bottom-left-radius: 6px; }
+  .welcome { text-align: center; padding: 22px 6px 8px; }
+  .welcome .logo { width: 62px; height: 62px; border-radius: 20px; margin: 0 auto 12px; background: var(--yellow); color: var(--text); display: grid; place-items: center; font-size: 30px; font-weight: 900; }
+  .welcome h2 { font-size: 21px; font-weight: 900; text-transform: uppercase; }
+  .welcome p { color: var(--muted); font-weight: 500; font-size: 14px; margin-top: 4px; }
+  .sugg { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+  .sugg button { background: var(--yellow-soft); border: 1px solid #ffe98a; color: var(--text); padding: 11px 14px; border-radius: 12px; font-weight: 600; font-size: 14px; text-align: left; }
+  .steps { align-self: flex-start; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: var(--muted); padding: 2px 4px; max-width: 92%; }
+  .step { display: flex; gap: 8px; align-items: flex-start; animation: fade .3s; }
+  .step .d { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; margin-top: 1px; display: grid; place-items: center; font-size: 10px; }
+  .step.ok .d { background: var(--text); color: var(--yellow); }
+  .step.err .d { background: var(--red); color: #fff; }
+  .step.run .d { border: 2px solid #eee; border-top-color: var(--text); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ocard { align-self: stretch; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,.06); animation: up .3s ease-out; flex-shrink: 0; }
+  .ocard .vh { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .ocard .vh img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; }
+  .ocard .vh b { font-weight: 800; font-size: 15px; display: block; }
+  .ocard .vh small { color: var(--muted); font-weight: 600; font-size: 12px; }
+  .ocard .ls { padding: 4px 14px; }
+  .ocard .sums { padding: 8px 14px; border-top: 1px solid var(--line); }
+  .ocard .sum { font-size: 13.5px; padding: 2px 0; }
+  .ocard .sum.total { font-size: 16px; }
+  .ocard .pm { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); font-weight: 700; font-size: 14px; }
+  .visa { background: #1a1f71; color: #fff; font-weight: 900; font-style: italic; font-size: 11px; padding: 3px 6px; border-radius: 4px; }
+  .ocard .acts { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .ocard .note { font-size: 11.5px; color: var(--muted); font-weight: 600; text-align: center; }
+  .ocard.paid { border-color: var(--green); }
+  .paidrow { display: flex; align-items: center; gap: 8px; color: var(--green); font-weight: 800; justify-content: center; padding: 6px 0; }
+  .composer { display: flex; gap: 8px; align-items: center; padding: 10px 12px 26px; border-top: 1px solid var(--line); }
+  .composer input { flex: 1; background: var(--surface); border: 0; border-radius: 14px; padding: 13px 16px; font: inherit; font-size: 15px; font-weight: 500; outline: none; color: var(--text); }
+  .composer .send { width: 44px; height: 44px; border-radius: 14px; background: var(--yellow-btn); color: var(--text); display: grid; place-items: center; flex-shrink: 0; }
+  .composer .mic { width: 44px; height: 44px; border-radius: 14px; background: var(--surface); color: var(--text); display: grid; place-items: center; flex-shrink: 0; }
+  .composer .mic.rec { background: var(--red); color: #fff; }
+
+  .langsw { display: flex; background: var(--surface); border-radius: 10px; padding: 3px; flex-shrink: 0; }
+  .langsw button { padding: 5px 8px; border-radius: 8px; font-weight: 700; font-size: 12px; color: var(--muted); }
+  .langsw button.on { background: var(--text); color: var(--yellow); }
+
+  /* ---------- Face ID ---------- */
+  .faceid { position: absolute; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(0,0,0,.25); animation: fade .15s; }
+  .faceid div { width: 150px; height: 150px; border-radius: 30px; background: rgba(30,30,30,.82); backdrop-filter: blur(10px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #fff; font-weight: 600; font-size: 14px; }
+  .faceid svg { width: 64px; height: 64px; }
+  .toast { position: absolute; top: 60px; left: 16px; right: 16px; z-index: 95; background: var(--text); color: #fff; padding: 12px 14px; border-radius: 12px; font-weight: 600; font-size: 14px; animation: up .25s; }
+
+  /* ---------- under the hood (desktop only) ---------- */
+  .hood { width: 440px; height: 844px; background: #15140f; color: #e9e4c8; border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.2); }
+  .hood.off { display: none; }
+  .hood h2 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .hood h2 small { margin-left: auto; font-size: 11px; color: #d9c64a; font-weight: 700; }
+  .hood h4 { font-family: Inter, sans-serif; color: #d9c64a; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; margin-bottom: 6px; }
+  .hood .pane { background: #222018; border-radius: 12px; padding: 12px; overflow: auto; }
+  .hood .trace { flex: 1; }
+  .hood .ev { border-left: 2px solid #FFE100; padding: 2px 0 2px 8px; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
+  .hood .ev b { color: #fff; }
+  .hood .ev.pay { border-color: #12b76a; }
+  .hood .ev.st { border-color: #4a4636; color: #8f8a72; }
+  .hood .tag { display: inline-block; background: #2f2c20; padding: 1px 6px; border-radius: 4px; margin: 2px 4px 2px 0; }
+  .hood .s-await { color: #ffc24b; } .hood .s-captured { color: #12b76a; } .hood .s-cancelled { color: #ff6b6b; }
+  .hood .reset { margin-left: 8px; background: #2f2c20; color: #e9e4c8; padding: 4px 10px; border-radius: 6px; font-family: Inter, sans-serif; font-weight: 800; font-size: 11px; }
+  .hoodtoggle { position: fixed; right: 16px; bottom: 16px; background: #15140f; color: #fff; padding: 8px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; z-index: 200; }
+  @media (max-width: 960px) { .hood, .hoodtoggle { display: none !important; } }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="island"></div>
+    <div class="screen" id="screen">
+      <div class="statusbar" id="statusbar"><span>9:41</span><span class="icons">
+        <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#000"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#000"/><rect x="10" y="2.5" width="3" height="9.5" rx="1" fill="#000"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#000"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2.5c2.3 0 4.4.9 6 2.4l1.2-1.3A10.4 10.4 0 0 0 8 .7 10.4 10.4 0 0 0 .8 3.6L2 4.9a8.6 8.6 0 0 1 6-2.4Zm0 3.6c1.3 0 2.5.5 3.4 1.3l1.2-1.3A6.6 6.6 0 0 0 8 4.3a6.6 6.6 0 0 0-4.6 1.8l1.2 1.3c.9-.8 2.1-1.3 3.4-1.3Zm0 3.6c.4 0 .8.2 1.1.4L8 11.3 6.9 10.1c.3-.2.7-.4 1.1-.4Z" fill="#000"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#000" opacity=".4" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#000"/><rect x="25" y="4.5" width="1.5" height="4" rx=".75" fill="#000" opacity=".4"/></svg>
+      </span></div>
+      <div class="view" id="view"></div>
+      <button class="fab" id="fab"><b>✦</b> Buy with AI</button>
+      <nav class="nav" id="nav"></nav>
+    </div>
+  </div>
+
+  <aside class="hood" id="hood">
+    <h2>✦ Under the hood <small>AgentPay · tenant: swoop</small></h2>
+    <div class="pane"><h4>Agent</h4><div id="hood-agent">…</div></div>
+    <div class="pane trace"><h4>Live agent trace</h4><div id="hood-trace"><span style="color:#8f8a72">Waiting for a message…</span></div></div>
+    <div class="pane"><h4>Swoop tenant memory (isolated) <button class="reset" id="reset">Reset demo</button></h4><div id="hood-mem"></div></div>
+    <div class="pane"><h4>Payments (state machine)</h4><div id="hood-pay"></div></div>
+  </aside>
+  <button class="hoodtoggle" id="hoodtoggle">Hide under the hood</button>
+
+<script src="/sdk.js"></script>
+<script src="/agentpay-ui.js"></script>
+<script>
+// ======================= state =======================
+const USER_ID = "user_123";
+const TEST_CASE = "Buy 2 vouchers for a private sulfur bath room at the nearest bathhouse";
+const S = {
+  data: null, screen: "home", dealId: null, tab: "All",
+  cart: { venueId: null, lines: [] },    // lines: { itemId, qty, optionIds }
+  agentPayment: null, cartSignature: null,
+  order: null, chatOpen: false, busy: false,
+};
+let agent;
+const BOOT = Date.now();
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const money = (n) => "₾" + (Number(n) % 1 ? Number(n).toFixed(2) : Number(n).toFixed(0));
+const money2 = (n) => "₾" + Number(n).toFixed(2);
+const venue = (id) => S.data.venues.find((v) => v.id === id);
+const item = (id) => S.data.catalog.find((i) => i.id === id);
+const km = (a, b) => { const R = 6371, r = Math.PI / 180, dLa = (b.lat - a.lat) * r, dLn = (b.lng - a.lng) * r;
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLn / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+const dist = (v) => { const d = km(S.data.location, v); return d < 10 ? d.toFixed(1) + " km" : Math.round(d) + " km"; };
+const optPrice = (it, ids) => (ids || []).reduce((s, o) => s + it.options.find((x) => x.id === o).price, 0);
+const linePrice = (l) => { const it = item(l.itemId); return (it.price + optPrice(it, l.optionIds)) * l.qty; };
+const cartCount = () => S.cart.lines.reduce((s, l) => s + l.qty, 0);
+const cartSubtotal = () => S.cart.lines.reduce((s, l) => s + linePrice(l), 0);
+const cartSaved = () => S.cart.lines.reduce((s, l) => s + ((item(l.itemId).meta?.oldPrice ?? item(l.itemId).price) - item(l.itemId).price) * l.qty, 0);
+const sig = () => JSON.stringify(S.cart);
+const endsAt = (it) => BOOT + (it.meta?.endsInHours ?? 24) * 3600e3 - 17 * 60e3;
+const hms = (ms) => { ms = Math.max(0, ms); const h = Math.floor(ms / 3600e3), m = Math.floor(ms / 60e3) % 60, s = Math.floor(ms / 1e3) % 60; return [h, m, s].map((x) => String(x).padStart(2, "0")); };
+const cap = (it) => Math.ceil((it.meta?.sold ?? 0) / 500) * 500 + 500;
+
+// ======================= icons =======================
+const LOGO = `<svg viewBox="0 0 89 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M44.2852 0.998047C48.0975 0.998047 51.1885 4.05237 51.1885 7.82031V32.1904C51.1885 35.9584 48.0975 39.0137 44.2852 39.0137C40.473 39.0135 37.3828 35.9583 37.3828 32.1904V7.82031C37.3828 4.05246 40.473 0.998203 44.2852 0.998047ZM59.8682 0C63.6804 0 66.7714 3.05438 66.7715 6.82227V32.1904C66.7715 35.9584 63.6805 39.0137 59.8682 39.0137C56.0559 39.0136 52.9658 35.9583 52.9658 32.1904V6.82227C52.9659 3.05441 56.0559 4.99848e-05 59.8682 0ZM11.4189 12.876C12.1874 12.6826 12.9598 13.1795 13.0898 13.9531L13.6367 17.207C13.7605 17.945 13.3164 18.6613 12.5938 18.8867C11.3625 19.2711 9.41969 19.8905 7.65625 20.5107C6.27695 20.9966 6.23701 22.9076 7.59473 23.4502C8.80584 23.9337 10.0604 24.4617 11.1475 24.8945L11.1484 24.8926C13.5347 25.8419 15.7431 27.8807 15.7432 31.5977C15.7432 35.3149 13.3475 38.9863 6.27539 38.9863C4.15744 38.9863 2.49972 38.7989 1.21582 38.5371C0.392763 38.3684 -0.138695 37.5762 0.0292987 36.7627L0.666017 33.6699C0.836693 32.8421 1.665 32.315 2.49903 32.5049C3.96894 32.8398 5.54743 33.1886 6.7334 33.4209C7.60322 33.5919 8.45848 33.0744 8.70313 32.2324C8.96082 31.3433 8.44707 30.4143 7.54883 30.1523C7.03217 30.0026 6.45045 29.8159 5.84668 29.5801C3.2503 28.5658 0.247072 26.6267 0.247072 22.623C0.247203 17.2762 4.70039 15.7606 7.35645 14.4434C9.13174 13.5625 10.493 13.1095 11.4189 12.876ZM85.4922 31.8506C87.4276 31.8506 88.997 33.4015 88.9971 35.3145C88.9971 37.2274 87.4277 38.7783 85.4922 38.7783C83.5569 38.7781 81.9883 37.2273 81.9883 35.3145C81.9883 33.4017 83.5569 31.8508 85.4922 31.8506ZM68.5898 2.91797C68.5898 2.18454 69.2652 1.62983 69.9941 1.76758C72.278 2.19803 75.0289 2.83774 77.8711 3.69629C80.249 4.41575 82.0793 6.3122 82.6807 8.69434C83.128 10.4667 83.2555 12.3828 83.3057 14.4062C83.3069 14.7211 83.3058 15.0581 83.2998 15.4131C83.2747 16.9377 83.1185 18.4917 82.7988 19.9326C82.1879 22.6769 79.6211 24.5359 76.8135 24.333C76.6298 24.3189 76.4482 24.3025 76.2705 24.2812C75.6396 24.2058 74.9432 24.1277 74.7031 24.1006C74.7031 25.774 74.7021 34.2819 74.7021 37.3965C74.7021 38.0415 74.1714 38.5654 73.5176 38.5654H69.7705C69.1167 38.5654 68.5871 38.0417 68.5869 37.3955L68.5898 2.91797ZM34.9023 3.74316C35.7185 3.49789 36.5207 4.15976 36.4229 4.99707C35.6687 11.4244 33.4744 31.1192 32.6797 37.5293C32.6069 38.1166 32.1017 38.5566 31.5039 38.5566H28.1055C27.564 38.5565 27.0905 38.1937 26.958 37.6738L25.1826 30.3496L23.2246 37.6865C23.0874 38.1995 22.617 38.5586 22.0801 38.5586H18.6055C17.9875 38.5586 17.4747 38.0878 17.4268 37.4795C17.0211 32.2515 15.7867 16.3443 15.4502 11.9219C15.4132 11.4348 15.6869 10.9763 16.1367 10.7734C17.4576 10.1779 18.7834 9.59655 20.1162 9.0293C20.8751 8.70738 21.7272 9.23298 21.7666 10.0479C21.9372 13.5764 22.2634 20.8286 22.4531 25.0576L23.7412 19.9463C23.8033 19.7034 23.9964 19.5148 24.2422 19.457L25.9834 19.0273C26.3389 18.945 26.6977 19.1559 26.792 19.5049C27.1858 20.9566 27.7518 23.0374 28.21 24.6943L29.8447 6.14453L29.8428 6.1416C29.8835 5.67725 30.1974 5.28245 30.6445 5.13379C31.9571 4.69862 33.4598 4.17598 34.9023 3.74316ZM44.2891 6.80664C43.8488 6.80664 43.4923 7.15963 43.4922 7.59473V32.4141C43.4923 32.8491 43.8489 33.2012 44.2891 33.2012C44.7293 33.2012 45.0858 32.8491 45.0859 32.4141V7.59473C45.0859 7.15964 44.7293 6.80666 44.2891 6.80664ZM59.8721 5.80957C59.4319 5.80957 59.0755 6.16172 59.0752 6.59668V32.4141C59.0754 32.8491 59.4319 33.2012 59.8721 33.2012C60.3122 33.201 60.6688 32.849 60.6689 32.4141V6.59668C60.6687 6.1618 60.3121 5.80969 59.8721 5.80957ZM74.7021 17.8525L75.335 17.958C75.3791 17.9663 75.5967 17.9932 75.6396 17.9932C76.2374 17.9967 76.7811 17.6069 76.8789 16.9961V16.9951C77.0018 16.2298 77.068 15.2334 77.043 13.9941C77.0108 12.336 76.8086 11.0596 76.5879 10.1621C76.4805 9.72467 76.1296 9.39084 75.6953 9.29297C75.4113 9.22892 74.7203 9.07721 74.7021 9.07324V17.8525Z" fill="#FF0000"/></svg>`;
+const WAVE = (fill) => `<svg class="wave" viewBox="0 0 430 24" preserveAspectRatio="none"><path d="M0 0H430V2C360 26 285 26 215 2C145 -22 70 -22 0 2V0Z" fill="${fill}"/></svg>`;
+const I = {
+  pin: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>',
+  back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  close: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  heart: '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.4 3.4 10 4.1l.6-.7a5 5 0 0 1 3.9-1.8c2.7 0 4.8 2 4.8 4.7 0 1.7-.8 3.2-2.2 5-1.5 1.8-3.5 3.7-6.1 6l-1 .9-.9-.9C6.5 15 4.4 13 2.9 11.3 1.5 9.5.8 8 .8 6.3c0-2.7 2-4.7 4.7-4.7 1.5 0 3 .7 3.9 1.8Z"/></svg>',
+  heartFill: '<svg width="16" height="16" viewBox="0 0 20 20" fill="#fff"><path d="M9.4 3.4 10 4.1l.6-.7a5 5 0 0 1 3.9-1.8c2.7 0 4.8 2 4.8 4.7 0 1.7-.8 3.2-2.2 5-1.5 1.8-3.5 3.7-6.1 6l-1 .9-.9-.9C6.5 15 4.4 13 2.9 11.3 1.5 9.5.8 8 .8 6.3c0-2.7 2-4.7 4.7-4.7 1.5 0 3 .7 3.9 1.8Z"/></svg>',
+  share: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v13M7 8l5-5 5 5M5 14v6h14v-6"/></svg>',
+  search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  send: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>',
+  mic: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  clock: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  face: '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"><path d="M4 18V10a6 6 0 0 1 6-6h8M46 4h8a6 6 0 0 1 6 6v8M60 46v8a6 6 0 0 1-6 6h-8M18 60h-8a6 6 0 0 1-6-6v-8"/><path d="M22 24v5M42 24v5M32 24v12h-3M24 44c4.5 4 11.5 4 16 0"/></svg>',
+  check: '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26" stroke-width="3.5"/><path d="M20 33l8 8 16-17"/></svg>',
+  tick: '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  nav: {
+    Home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/></svg>',
+    Categories: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>',
+    Favorites: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9.4 3.4 10 4.1l.6-.7a5 5 0 0 1 3.9-1.8c2.7 0 4.8 2 4.8 4.7 0 1.7-.8 3.2-2.2 5-1.5 1.8-3.5 3.7-6.1 6l-1 .9-.9-.9C6.5 15 4.4 13 2.9 11.3 1.5 9.5.8 8 .8 6.3c0-2.7 2-4.7 4.7-4.7 1.5 0 3 .7 3.9 1.8Z"/></svg>',
+    Vouchers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z"/><path d="M14 5v14" stroke-dasharray="2 2.5"/></svg>',
+    Profile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  },
+};
+
+// ======================= render: shell =======================
+function render() {
+  const v = $("#view");
+  if (S.screen === "home") v.innerHTML = homeView();
+  if (S.screen === "deal") v.innerHTML = dealView();
+  if (S.screen === "checkout") v.innerHTML = checkoutView();
+  if (S.screen === "vouchers") v.innerHTML = vouchersView();
+  if (S.screen === "issuing") v.innerHTML = issuingView();
+  syncStatusbar();
+  $("#nav").style.display = S.screen === "home" ? "" : "none";
+  $("#fab").classList.toggle("hide", S.screen !== "home" && S.screen !== "deal");
+  $("#fab").style.bottom = S.screen === "home" ? "96px" : "96px";
+  document.querySelectorAll(".buybar").forEach((e) => e.remove());
+  if (S.screen === "deal") renderBuyBar();
+  tick();
+}
+function syncStatusbar() { const y = $("#view").scrollTop; $("#statusbar").classList.toggle("y", (S.screen === "home" && y < 250) || ((S.screen === "vouchers" || S.screen === "issuing") && y < 150)); }
+$("#view").addEventListener("scroll", syncStatusbar, { passive: true });
+function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render(); $("#view").scrollTop = 0; syncStatusbar(); }
+function renderNav() {
+  $("#nav").innerHTML = Object.entries(I.nav).map(([k, svg], i) => `<button class="${i === 0 ? "on" : ""}">${svg}${k}</button>`).join("");
+}
+// live countdowns
+function tick() {
+  document.querySelectorAll("[data-cd]").forEach((el) => {
+    const [h, m, s] = hms(+el.dataset.cd - Date.now());
+    el.innerHTML = el.classList.contains("t") ? `<span>${h}</span><em>:</em><span>${m}</span><em>:</em><span>${s}</span>` : `${I.clock} ${h}:${m}:${s}`;
+  });
+}
+setInterval(tick, 1000);
+
+// ======================= home =======================
+function dealCard(it, cls = "") {
+  const v = venue(it.venueId), m = it.meta || {};
+  return `<div class="dc ${cls}" onclick="openDeal('${it.id}')">
+    <div class="dimg"><img src="${it.image}" alt="" loading="lazy"><span class="heart">${I.heartFill}</span>
+      <span class="cd" data-cd="${endsAt(it)}"></span></div>
+    <div class="dbody">
+      <h3>${esc(it.name)}</h3>
+      <div class="vend">${esc(v.name)} · ${dist(v)}</div>
+      <div class="pr"><span class="pill">-${m.discount}%</span><b>${money(it.price)}</b><s>${money(m.oldPrice)}</s></div>
+      <div><div class="sold">Sold ${m.sold.toLocaleString("en-US")}</div><div class="sbar"><i style="width:${Math.min(100, (m.sold / cap(it)) * 100).toFixed(0)}%"></i></div></div>
+      <button class="buy" onclick="event.stopPropagation();openDeal('${it.id}')">Buy</button>
+    </div></div>`;
+}
+const TABS = ["All", "Leisure", "Food", "Entertainment", "Aesthetics"];
+function homeView() {
+  const loc = S.data.location;
+  const byDist = (a, b) => km(loc, venue(a.venueId)) - km(loc, venue(b.venueId));
+  const popular = [...S.data.catalog].sort((a, b) => b.meta.sold - a.meta.sold).filter((it, i, arr) => arr.findIndex((x) => x.name === it.name) === i).slice(0, 7);
+  const baths = S.data.catalog.filter((i) => i.id.endsWith("__private_room")).sort(byDist);
+  const list = S.data.catalog.filter((i) => S.tab === "All" || venue(i.venueId).meta?.section === S.tab)
+    .filter((it, i, arr) => !it.id.includes("__public_bath") || arr.findIndex((x) => x.id.includes("__public_bath")) === i).sort(byDist);
+  const cats = [["🎬", "Cinema"], ["🎭", "Theatre"], ["🏖️", "Leisure", 1], ["🎡", "Fun"], ["🍽️", "Food"], ["🧸", "Kids"], ["⚽", "Sport"], ["📚", "Courses"], ["💆", "Beauty"]];
+  return `
+  <div class="yhead">
+    <div class="ytop"><span class="logo">${LOGO}</span><span class="sp"></span>
+      <button class="aibtn" onclick="openChat()">✦ AI <span class="beta">Beta</span></button><span class="lang">Eng</span><span class="ibtn">${I.heart}</span></div>
+    <div class="yhero"><h1>Discover super<br>deals 🚀</h1><div class="loc">${I.pin} ${esc(loc.label)}</div></div>
+    <button class="search" onclick="openChat()">${I.search} Search deals, places…<span class="ai">✦ Ask AI</span></button>
+    ${WAVE("#FFE100")}
+  </div>
+  <div class="cats">${cats.map(([e, n, on]) => `<div class="cat ${on ? "on" : ""}"><div class="ic">${e}</div>${n}</div>`).join("")}</div>
+  <div class="moods">${["💕 Romantic", "🧖 Relaxing", "🪂 Adventurous", "🍷 Gourmet", "🎨 Creative", "🏃 Sporty"].map((m) => `<span>${m}</span>`).join("")}</div>
+  <button class="promo" onclick="openChat()"><span class="spark">✦</span>
+    <h3>Just say what you want. Swoop AI buys the voucher.</h3>
+    <p>Finds the best deal closest to you, adds it to your cart and gets it ready to pay.</p>
+    <span class="cta">✦ Try Swoop AI</span></button>
+  <div class="sec"><h2>🔥 Most popular</h2><a>See all</a></div>
+  <div class="carousel">${popular.map((i) => dealCard(i)).join("")}</div>
+  <div class="sec"><h2>♨️ Sulfur baths</h2><a>See all</a></div>
+  <div class="carousel">${baths.map((i) => dealCard(i)).join("")}</div>
+  <div class="tabs">${TABS.map((t) => `<button class="${S.tab === t ? "on" : ""}" onclick="setTab('${t}')">${t}</button>`).join("")}</div>
+  <div class="sec" style="padding-top:14px"><h2>Near you</h2><a>${list.length} deals</a></div>
+  <div class="grid">${list.map((i) => dealCard(i)).join("")}</div>`;
+}
+function setTab(t) { const y = $("#view").scrollTop; S.tab = t; render(); $("#view").scrollTop = y; }
+
+// ======================= deal page =======================
+const dealState = { qty: 1, opts: new Set() };
+function openDeal(id) { dealState.qty = 1; dealState.opts = new Set(); go("deal", { dealId: id }); }
+function dealView() {
+  const it = item(S.dealId), v = venue(it.venueId), m = it.meta || {};
+  const groups = [...new Set((it.options || []).map((o) => o.group))];
+  const others = S.data.catalog.filter((i) => i.venueId === v.id && i.id !== it.id);
+  const conds = [["📅", `Valid until ${m.validUntil}`], m.guests && ["👥", m.guests[0].toUpperCase() + m.guests.slice(1)], m.duration && ["⏱", `Duration: ${m.duration}`],
+    ["📞", "Booking required in advance — show the voucher code at the venue"], ["🕒", `Working hours: ${v.meta?.hours ?? "—"}`], ["🎁", "Can be gifted · non-refundable after use"]].filter(Boolean);
+  return `
+  <div class="dhero"><img src="${it.image.replace("w=300&h=186", "w=800&h=496")}" alt="">
+    <div class="btns"><button class="circle" onclick="go('home')">${I.back}</button><span style="display:flex;gap:8px"><span class="circle">${I.heart}</span><span class="circle">${I.share}</span></span></div>
+    <span class="badge" style="top:auto;bottom:14px;left:14px;font-size:18px">-${m.discount}%</span>
+    <div class="dots"><i></i><i></i><i></i><i></i></div>
+  </div>
+  <div class="dhead">
+    <div class="vrow"><span class="av">${esc(v.name[0])}</span>${esc(v.name)} · ★ ${v.rating.toFixed(1)} · ${dist(v)}</div>
+    <h1>${esc(it.name)}</h1>
+  </div>
+  <div class="pricebox">
+    <div class="top"><span class="big">${money(it.price)}</span><s>${money(m.oldPrice)}</s><span class="pill">-${m.discount}%</span></div>
+    <div class="save">You save ${money(m.oldPrice - it.price)} per voucher</div>
+    <div class="timer">⏳ Offer ends in <span class="t" data-cd="${endsAt(it)}"></span></div>
+    <div class="soldrow"><span>Sold ${m.sold.toLocaleString("en-US")}</span><span>${cap(it).toLocaleString("en-US")} available</span></div>
+    <div class="sbar"><i style="width:${Math.min(100, (m.sold / cap(it)) * 100).toFixed(0)}%"></i></div>
+  </div>
+  ${groups.length ? `<div class="dsec"><h3>Add to your voucher</h3>${groups.map((g) => it.options.filter((o) => o.group === g).map((o) =>
+    `<button class="opt ${dealState.opts.has(o.id) ? "on" : ""}" onclick="toggleOpt('${o.id}')"><span class="box"></span>${esc(o.name)}<span class="x">+${money(o.price)}</span></button>`).join("")).join("")}</div>` : ""}
+  <div class="dsec"><h3>About the offer</h3><p>${esc(it.description)}</p></div>
+  <div class="dsec"><h3>Terms</h3><ul class="conds">${conds.map(([e, t]) => `<li><i>${e}</i>${esc(t)}</li>`).join("")}</ul></div>
+  <div class="dsec"><h3>Address</h3><p>${esc(v.meta?.address ?? v.area)}</p>
+    <div class="minimap"><svg viewBox="0 0 340 120" width="100%" height="100%" preserveAspectRatio="xMidYMid slice"><rect width="340" height="120" fill="#eef0ea"/>
+      <g stroke="#fff" stroke-width="9" fill="none"><path d="M-5 40 L345 25"/><path d="M-5 95 L345 105"/><path d="M90 -5 L70 125"/><path d="M240 -5 L265 125"/></g>
+      <path d="M150 70 Q 200 50 260 80" stroke="#b9d7ef" stroke-width="12" fill="none"/>
+      <circle cx="170" cy="58" r="14" fill="#161616"/><text x="170" y="63" font-size="13" text-anchor="middle">📍</text></svg></div></div>
+  ${others.length ? `<div class="sec" style="padding-top:22px"><h2 style="font-size:16px">More from ${esc(v.name)}</h2></div><div class="more">${others.map((i) => dealCard(i)).join("")}</div>` : `<div style="height:120px"></div>`}`;
+}
+function toggleOpt(id) { dealState.opts.has(id) ? dealState.opts.delete(id) : dealState.opts.add(id); const y = $("#view").scrollTop; render(); $("#view").scrollTop = y; }
+function renderBuyBar() {
+  const it = item(S.dealId);
+  const unit = it.price + optPrice(it, [...dealState.opts]);
+  const bar = document.createElement("div");
+  bar.className = "buybar";
+  bar.innerHTML = `<div class="stepper"><button data-q="-1">−</button>${dealState.qty}<button data-q="1">+</button></div>
+    <button class="btn" id="buybtn">Buy · ${money(unit * dealState.qty)}</button>`;
+  bar.querySelectorAll("[data-q]").forEach((b) => b.onclick = () => { dealState.qty = Math.max(1, dealState.qty + +b.dataset.q); renderBuyBar(); });
+  bar.querySelector("#buybtn").onclick = () => {
+    S.cart = { venueId: it.venueId, lines: [{ itemId: it.id, qty: dealState.qty, optionIds: [...dealState.opts] }] };
+    S.agentPayment = null;
+    go("checkout");
+  };
+  document.querySelectorAll(".buybar").forEach((e) => e.remove());
+  $("#screen").appendChild(bar);
+}
+
+// ======================= checkout =======================
+function checkoutView() {
+  const v = venue(S.cart.venueId);
+  if (!v) return `<div class="pagehead"><button onclick="go('home')">${I.back}</button><h1>Checkout</h1></div><p style="padding:16px">Your cart is empty.</p>`;
+  const sub = cartSubtotal(), total = sub + v.deliveryFee + S.data.serviceFee;
+  const back = S.cart.lines[0] ? `go('deal',{dealId:'${S.cart.lines[0].itemId}'})` : "go('home')";
+  return `
+  <div class="pagehead"><button onclick="${back}">${I.back}</button><div><h1>Checkout</h1><div class="vend" style="margin:0">${esc(v.name)} · ${esc(v.area)}</div></div></div>
+  <div class="block"><h3>Your vouchers</h3>
+    ${S.cart.lines.map((l) => { const it = item(l.itemId); return `<div class="line"><img src="${it.image}" alt=""><span class="q">${l.qty}×</span>
+      <div class="nm">${esc(it.name)}${l.optionIds.length ? `<div class="mods">+ ${l.optionIds.map((o) => esc(it.options.find((x) => x.id === o).name)).join(", ")}</div>` : ""}<div class="mods">Valid until ${esc(it.meta.validUntil)}</div></div>
+      <span class="prc">${money2(linePrice(l))}<s>${money2((it.meta.oldPrice + optPrice(it, l.optionIds)) * l.qty)}</s></span></div>`; }).join("")}
+  </div>
+  <div class="block"><h3>Voucher recipient</h3>
+    <div class="seg"><div class="on">For me</div><div>As a gift 🎁</div></div>
+    <div class="row"><span class="ic">✉️</span><div>luka@example.ge<small>Voucher codes are sent by e-mail & SMS</small></div><span class="chev">›</span></div>
+  </div>
+  <div class="block"><h3>Payment method</h3>
+    <div class="row"><span class="ic"><span class="visa">VISA</span></span><div>${esc(S.data.paymentMethod)}<small>Saved card</small></div><span class="chev">›</span></div>
+  </div>
+  <div class="block"><h3>Summary</h3>
+    <div class="sum"><span>Original price</span><span><s>${money2(sub + cartSaved())}</s></span></div>
+    <div class="sum green"><span>Swoop discount</span><span>−${money2(cartSaved())}</span></div>
+    <div class="sum"><span>Vouchers</span><span>${money2(sub)}</span></div>
+    <div class="sum"><span>Service fee</span><span>${money2(S.data.serviceFee)}</span></div>
+    <div class="sum total"><span>Total</span><span>${money2(total)}</span></div>
+  </div>
+  <div style="padding:14px 16px 30px"><button class="btn" id="cobtn" onclick="checkoutPay()">Pay ${money2(total)}</button></div>`;
+}
+async function checkoutPay() {
+  $("#cobtn").disabled = true;
+  const viaAgent = !!(S.agentPayment && S.cartSignature === sig());
+  let intent = viaAgent ? S.agentPayment : null;
+  if (!intent) {
+    const r = await agent.createOrder(S.cart.lines.map((l) => ({ item_id: l.itemId, qty: l.qty, option_ids: l.optionIds })));
+    if (r.error) { toast(r.error); $("#cobtn").disabled = false; return; }
+    intent = r;
+  }
+  const p = await payWithFaceId(intent);
+  if (p) startFulfilment(p, viaAgent);
+  else $("#cobtn").disabled = false;
+}
+
+// ======================= payment: the real card-payment path, visualised (shared AgentPayUI) =======================
+async function payWithFaceId(intent) {
+  const r = await AgentPayUI.pay({ root: $("#screen"), agent, payment: intent, accent: "#161616", merchant: "Swoop" });
+  refreshHood();
+  return r;
+}
+
+// ======================= vouchers (confirmation) =======================
+function voucherCodes(p) {
+  // deterministic pseudo-codes per payment + unit
+  let seed = [...p.id].reduce((s, c) => (s * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const next = () => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) >>> 16) % A.length;
+  const out = [];
+  p.lines.forEach((l) => { for (let i = 0; i < l.qty; i++) out.push({ l, code: "SW-" + Array.from({ length: 4 }, () => A[next()]).join("") + "-" + Array.from({ length: 4 }, () => A[next()]).join("") }); });
+  return out;
+}
+function qrArt(code) {
+  let s = [...code].reduce((a, c) => (a * 33 + c.charCodeAt(0)) >>> 0, 5);
+  const cells = [];
+  for (let y = 0; y < 13; y++) for (let x = 0; x < 13; x++) {
+    const finder = (x < 4 && y < 4) || (x > 8 && y < 4) || (x < 4 && y > 8);
+    if (finder) continue;
+    s = (Math.imul(s, 1103515245) + 12345) >>> 0;
+    if ((s >>> 16) & 1) cells.push(`<rect x="${x}" y="${y}" width="1" height="1"/>`);
+  }
+  const f = (x, y) => `<rect x="${x}" y="${y}" width="4" height="4" fill="none" stroke="#161616" stroke-width=".9" transform="translate(.45 .45) scale(.93)"/><rect x="${x + 1.2}" y="${y + 1.2}" width="1.6" height="1.6"/>`;
+  return `<svg class="qr" viewBox="0 0 13 13" fill="#161616" shape-rendering="crispEdges">${cells.join("")}${f(0, 0)}${f(9, 0)}${f(0, 9)}</svg>`;
+}
+// ======================= fulfilment: the real voucher process, visualised live =======================
+// Payment captured → codes generated → partner notified (Swoop Partner system) → slot availability → booking confirmed
+// by the partner → vouchers sent by SMS + email → "My vouchers". Language is fixed when the purchase starts (EN / ქარ).
+const OK = () => S.order?.ka;                                   // fulfilment / voucher screens in Georgian?
+const tr = (en, kaStr) => (OK() ? kaStr : en);
+const pvName = (pv) => (OK() && pv.nameKa) || pv.name;          // payment-intent venue
+const pvArea = (pv) => (OK() && pv.areaKa) || pv.area;
+const lnF = (l) => (OK() && l.nameKa) || l.name;
+const loF = (l) => (OK() && l.optionsKa) || l.options;
+const guestsKa = (g) => g.replace(/^up to (\d+) guests$/, "მაქს. $1 სტუმარი").replace(/^two guests$/, "ორი სტუმარი").replace(/^(\d+) persons?$/, "$1 ადამიანი");
+function bookingPlan(p) {
+  const v = venue(p.venue.id), it = item(p.lines[0].itemId);
+  const bath = /bath/i.test(v.cuisine);
+  const slots = bath ? [["16:00", 0], ["17:00", 0], ["18:00", 1], ["19:00", 1], ["20:00", 0], ["21:00", 1]]
+                     : [["11:00", 0], ["12:00", 1], ["13:00", 1], ["14:00", 0], ["15:00", 1], ["16:00", 1]];
+  const at = slots.find((s) => s[1])[0];
+  const end = String(+at.slice(0, 2) + 1).padStart(2, "0") + ":00";
+  const g = it.meta?.guests ?? "";
+  return OK()
+    ? { day: bath ? "დღეს" : "ხვალ", slots, at, end, room: bath ? "ოთახი 3" : "ადგილი დაჯავშნილია", guests: g && guestsKa(g), bath }
+    : { day: bath ? "Today" : "Tomorrow", slots, at, end, room: bath ? "Room 3" : "Table / spot reserved", guests: g, bath };
+}
+let fulfilRun, scrambleTimer;
+function startFulfilment(p, viaAgent) {
+  const codes = voucherCodes(p);
+  S.order = { p, viaAgent, codes, booking: null, ka: ka() };
+  S.order.plan = bookingPlan(p);
+  S.cart = { venueId: null, lines: [] };
+  S.agentPayment = null;
+  closeChat();
+  fulfilRun?.cancel(); clearInterval(scrambleTimer);
+  go("issuing");
+  const { plan } = S.order, vn = pvName(p.venue);
+  const n = codes.length, what = p.lines.map((l) => `${l.qty}× ${lnF(l)}`).join(", ");
+  const orderNo = "SW" + p.id.replace(/\D/g, "").padStart(6, "40");
+  const cs = codes.map((c) => c.code).join(" · ");
+  const head = OK() ? [
+    ["გადახდა მიღებულია", `${money2(p.total)} ჩამოიჭრა · შეკვეთა #${orderNo}`],
+    [`${n} ვაუჩერის კოდის გენერაცია`, "უნიკალური, ერთჯერადი კოდები Swoop-ის ხელმოწერით"],
+    [`ვატყობინებთ: ${vn}`, "გაყიდვა იგზავნება პარტნიორის Swoop Partner სისტემაში"],
+    ["თავისუფალი დროის შემოწმება", `${vn} · ${plan.day}`],
+    [`ვჯავშნით: ${plan.day} ${plan.at}`, `ველოდებით რეცეფციის დადასტურებას — ${vn}`],
+    ["ვაუჩერების გაგზავნა", "SMS + ელფოსტა"],
+    ["ვაუჩერები მზადაა", `${plan.day} ${plan.at} — ${vn}, დაჯავშნილია`],
+  ] : [
+    ["Payment received", `${money2(p.total)} captured · order #${orderNo}`],
+    [`Generating ${n} voucher code${n > 1 ? "s" : ""}`, "Unique, single-use codes signed by Swoop"],
+    [`Notifying ${vn}`, "Sending the sale to the partner's Swoop Partner system"],
+    ["Checking free slots", `${vn} · ${plan.day.toLowerCase()}`],
+    [`Booking ${plan.day.toLowerCase()} ${plan.at}`, `Waiting for ${vn} reception to confirm`],
+    ["Sending your vouchers", "SMS + e-mail"],
+    ["Your vouchers are ready", `${plan.day} ${plan.at} at ${vn} is booked`],
+  ];
+  const slotTxt = plan.slots.slice(0, 4).map(([t, f]) => `${t} ${f ? tr("free", "თავისუფალია") : tr("busy", "დაკავებულია")}`).join(" · ");
+  const extra = `${plan.room}${plan.guests ? " · " + plan.guests : ""}`;
+  const list = OK() ? [
+    { title: "გადახდა დადასტურებულია", detail: `${money2(p.total)} · ${p.paymentMethod} · შეკვეთა #${orderNo}`, ms: 2000 },
+    { title: `${n} ვაუჩერის კოდი შეიქმნა`, detail: cs, ms: 3000 },
+    { title: `${vn} — შეტყობინება გაიგზავნა`, detail: `Swoop Partner სისტემა · ${what} დარეგისტრირდა ${n === 2 ? "ორივე კოდზე" : n > 2 ? "ყველა კოდზე" : "კოდზე"}`, ms: 3200 },
+    { title: "თავისუფალი დრო შემოწმდა", detail: `${plan.day}: ${slotTxt}`, ms: 3600 },
+    { title: `დაჯავშნილია: ${plan.day} ${plan.at}–${plan.end}`, detail: `დაადასტურა რეცეფციამ (${vn}) · ${extra}`, ms: 3400 },
+    { title: "ვაუჩერები გაიგზავნა SMS-ით და ელფოსტით", detail: "+995 555 •• 12 34 · luka@example.ge", ms: 2600 },
+    { title: "შენახულია „ჩემს ვაუჩერებში“", detail: "შესასვლელთან აჩვენეთ QR კოდი", ms: 900 },
+  ] : [
+    { title: "Payment captured", detail: `${money2(p.total)} · ${p.paymentMethod} · order #${orderNo}`, ms: 2000 },
+    { title: `${n} voucher code${n > 1 ? "s" : ""} generated`, detail: cs, ms: 3000 },
+    { title: `${vn} notified`, detail: `Swoop Partner system · ${what} registered against ${n > 1 ? "both codes" : "the code"}`, ms: 3200 },
+    { title: "Slot availability checked", detail: `${plan.day}: ${slotTxt}`, ms: 3600 },
+    { title: `Booked ${plan.day.toLowerCase()} ${plan.at}–${plan.end}`, detail: `Confirmed by ${vn} reception · ${extra}`, ms: 3400 },
+    { title: "Vouchers sent by SMS + e-mail", detail: "+995 555 •• 12 34 · luka@example.ge", ms: 2600 },
+    { title: "Saved to My vouchers", detail: "Show the QR code at the entrance", ms: 900 },
+  ];
+  fulfilRun = AgentPayUI.stages($("#fstages"), list, {
+    accent: "#161616",
+    onStage: (i) => {
+      if (S.screen !== "issuing") return;
+      const [t, sub] = head[i];
+      $("#fbig").textContent = t; $("#fsub").textContent = sub;
+      fulfilVisual(i);
+      const focus = [null, "#fcodes", "#partner", "#partner", "#partner", "#sms", "#fstages"][i];
+      if (focus) setTimeout(() => $(focus)?.scrollIntoView({ behavior: "smooth", block: i === 6 ? "end" : "center" }), 150);
+    },
+    onDone: () => setTimeout(() => { if (S.screen === "issuing") go("vouchers"); }, 700),
+  });
+}
+function fulfilVisual(i) {
+  const { codes, plan, p } = S.order;
+  const vn = pvName(p.venue);
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", rnd = () => A[Math.floor(Math.random() * A.length)];
+  const pst = (txt, cls = "") => { $("#pstat").textContent = txt; $("#pstat").className = "pst " + cls; };
+  if (i === 1) {
+    $("#fcodes").classList.add("on");
+    const t0 = Date.now();
+    scrambleTimer = setInterval(() => {
+      codes.forEach((c, k) => {
+        const el = $("#mc" + k); if (!el) return;
+        if (Date.now() - t0 > 1200 + k * 900) { el.textContent = c.code; el.classList.add("lock"); }
+        else el.textContent = "SW-" + [0, 1, 2, 3].map(rnd).join("") + "-" + [0, 1, 2, 3].map(rnd).join("");
+      });
+      if (Date.now() - t0 > 1200 + codes.length * 900) clearInterval(scrambleTimer);
+    }, 70);
+  }
+  if (i === 2) {
+    $("#partner").classList.add("on"); pst(tr("New sale", "ახალი გაყიდვა"), "new");
+    $("#pfeed").innerHTML = `<div class="pin">🔔 <b>${tr("New voucher sale", "ვაუჩერის ახალი გაყიდვა")}</b> · ${esc(p.lines.map((l) => `${l.qty}× ${lnF(l)}`).join(", "))}<small>${codes.map((c) => c.code).join(" · ")}</small></div>`;
+  }
+  if (i === 3) {
+    pst(tr("Checking", "მოწმდება"));
+    $("#slots").innerHTML = plan.slots.map(([t, f]) => `<span class="slot" data-f="${f}">${t}</span>`).join("");
+    [...$("#slots").children].forEach((el, k) => setTimeout(() => el.classList.add(el.dataset.f === "1" ? "free" : "busy"), 350 + k * 380));
+  }
+  if (i === 4) {
+    [...$("#slots").children].find((x) => x.textContent === plan.at)?.classList.add("pick");
+    pst(tr("Requested", "მოთხოვნილია"));
+    setTimeout(() => {
+      if (S.screen !== "issuing") return;
+      S.order.booking = plan;
+      pst(tr("Confirmed ✓", "დადასტურდა ✓"), "ok");
+      const g = `${esc(plan.room)}${plan.guests ? " · " + esc(plan.guests) : ""}`;
+      $("#pfeed").insertAdjacentHTML("beforeend", OK()
+        ? `<div class="pin ok">✓ <b>${esc(plan.day)} ${plan.at}–${plan.end} დადასტურდა</b> — ${esc(vn)}, რეცეფცია<small>${g} · ნინო კ., რეცეფცია</small></div>`
+        : `<div class="pin ok">✓ <b>${esc(plan.day)} ${plan.at}–${plan.end} confirmed</b> by ${esc(vn)} reception<small>${g} · Nino K., front desk</small></div>`);
+    }, 2200);
+  }
+  if (i === 5) {
+    const cs = codes.map((c) => c.code).join(", ");
+    $("#sms").classList.add("on");
+    $("#sms").innerHTML = `<div class="smsh"><span>💬 SMS · Swoop</span><span>${tr("now", "ახლა")}</span></div>
+      <div class="smsb">${OK()
+        ? `Swoop: თქვენი ვაუჩერები ${cs} (${esc(vn)}) მზადაა. ჯავშანი: ${esc(plan.day)} ${plan.at}. შესასვლელთან აჩვენეთ კოდი.`
+        : `Swoop: your vouchers ${cs} for ${esc(vn)} are ready. Booking: ${esc(plan.day.toLowerCase())} ${plan.at}. Show the code at the entrance.`}</div>
+      <div class="smsh" style="margin-top:6px"><span>✉️ luka@example.ge</span><span class="sent">${tr("delivered ✓", "მიწოდებულია ✓")}</span></div>`;
+  }
+}
+function issuingView() {
+  const { p, codes, viaAgent } = S.order;
+  const vn = pvName(p.venue);
+  return `
+  <div class="okhead" style="padding-bottom:30px"><div class="tick spin">${I.tick}</div><h1 id="fbig">${tr("Payment received", "გადახდა მიღებულია")}</h1><p id="fsub">${money2(p.total)} ${tr("captured", "ჩამოიჭრა")}</p>${WAVE("#FFE100")}</div>
+  <div class="flive">
+    <div class="fcodes" id="fcodes">${codes.map((c, k) => `<div class="mv"><img src="${c.l.image}" alt=""><div><small>${tr(`Voucher ${k + 1} of ${codes.length}`, `ვაუჩერი ${k + 1} / ${codes.length}`)}</small><div class="code" id="mc${k}">SW-····-····</div></div></div>`).join("")}</div>
+    <div class="partner" id="partner">
+      <div class="ph"><span class="pl">${esc(vn[0])}</span><div><b>${esc(vn)}</b><small>Swoop Partner · ${esc(pvArea(p.venue))}</small></div><span class="pst" id="pstat">${tr("Waiting", "მოლოდინი")}</span></div>
+      <div id="pfeed"></div>
+      <div class="slots" id="slots"></div>
+    </div>
+    <div class="sms" id="sms"></div>
+    <div id="fstages" style="margin-top:6px"></div>
+    ${viaAgent ? `<div class="agentpaid" style="margin:0">${tr("✦ Bought by Swoop AI · you confirmed with Face ID", "✦ იყიდა Swoop AI-მ · თქვენ დაადასტურეთ Face ID-ით")}</div>` : ""}
+  </div>`;
+}
+
+function vouchersView() {
+  const { p, viaAgent } = S.order;
+  const v = venue(p.venue.id), vn = pvName(p.venue);
+  const codes = voucherCodes(p);
+  const bk = S.order.booking;
+  const n = codes.length;
+  return `
+  <div class="okhead"><div class="tick">${I.tick}</div><h1>${bk ? tr("You're booked!", "დაჯავშნილია!") : tr("Payment successful", "გადახდა წარმატებულია")}</h1>
+    <p>${tr(`${n} voucher${n > 1 ? "s" : ""} · ${money2(p.total)} paid with ${esc(p.paymentMethod)}`, `${n} ვაუჩერი · ${money2(p.total)} გადახდილია ბარათით ${esc(p.paymentMethod)}`)}</p>${WAVE("#FFE100")}</div>
+  ${bk ? `<div class="booked"><div class="bd"><small>${esc(OK() ? bk.day : bk.day.toUpperCase())}</small><b>${bk.at}</b></div><div><b>${esc(bk.day)} ${bk.at}–${bk.end} · ${esc(bk.room)}</b><small>${tr(`✓ Confirmed by ${esc(vn)} via Swoop Partner`, `✓ დაადასტურა: ${esc(vn)} · Swoop Partner`)}${bk.guests ? " · " + esc(bk.guests) : ""}</small></div></div>` : ""}
+  <div class="vouchers"${bk ? ' style="padding-top:14px"' : ""}>${codes.map(({ l, code }, i) => `
+    <div class="vch" style="animation-delay:${i * .12}s">
+      <div class="vt">${l.image ? `<img src="${l.image}" alt="">` : ""}<div><b>${esc(lnF(l))}</b><small>${esc(vn)} · ${esc(OK() ? pvArea(p.venue) : v?.meta?.address ?? p.venue.area)}</small>
+        ${l.options.length ? `<small style="display:block">+ ${esc(loF(l).join(", "))}</small>` : ""}</div></div>
+      <div class="cut"></div>
+      <div class="vb"><div><small style="margin:0 0 2px">${tr(`Voucher ${i + 1} of ${n}`, `ვაუჩერი ${i + 1} / ${n}`)}</small><div class="code">${code}</div><small>${tr(`Valid until ${esc(item(l.itemId)?.meta?.validUntil ?? "")} · show at the venue`, `მოქმედებს ${esc(item(l.itemId)?.meta?.validUntil ?? "")}-მდე · აჩვენეთ ადგილზე`)}</small></div>${qrArt(code)}</div>
+    </div>`).join("")}</div>
+  ${viaAgent ? `<div class="agentpaid">${tr("✦ Found &amp; bought by Swoop AI in one message · you confirmed with Face ID", "✦ იპოვა და იყიდა Swoop AI-მ ერთი შეტყობინებით · თქვენ დაადასტურეთ Face ID-ით")}</div>` : ""}
+  <div class="block" style="padding-top:8px">
+    <div class="row"><span class="ic">📅</span><div>${bk ? tr("Change booking time", "ჯავშნის დროის შეცვლა") : tr("Book a time", "დროის დაჯავშნა")}<small>${bk
+      ? tr(`${esc(bk.day)} ${bk.at} held for you · free to change until 3 h before`, `${esc(bk.day)} ${bk.at} დაცულია თქვენთვის · შეცვლა უფასოა 3 საათით ადრე`)
+      : tr(`Call ${esc(vn)} and give the voucher code`, `დაურეკეთ: ${esc(vn)} და უთხარით ვაუჩერის კოდი`)}</small></div><span class="chev">›</span></div>
+    <div class="row"><span class="ic">✉️</span><div>${tr("Sent by SMS &amp; e-mail", "გაიგზავნა SMS-ით და ელფოსტით")}<small>+995 555 •• 12 34 · luka@example.ge</small></div><span class="chev">›</span></div>
+  </div>
+  <div style="padding:10px 16px 30px;display:flex;gap:10px"><button class="btn ghost" onclick="go('home')">${tr("Back to deals", "შეთავაზებები")}</button><button class="btn dark">${tr("My vouchers", "ჩემი ვაუჩერები")}</button></div>`;
+}
+
+// ======================= AI chat (EN | ქარ) =======================
+let LANG = localStorage.getItem("agentpay_lang") || "en";
+const L = {
+  en: {
+    sub: (a) => `Finds &amp; buys deals for you · near ${a}`, title: "What are you up to?",
+    intro: "Tell me what you want — I'll find the best deal nearest to you and get the vouchers ready to pay.",
+    chips: [TEST_CASE, "Book a tandem paragliding flight in Gudauri with video", "Buy a hot stone massage voucher with gift box", "Buy a Kakheti wine tour"],
+    ph: "Message Swoop AI…", fromYou: (d) => `${d} from you`, valid: (d) => `voucher · valid until ${d}`, save: "You save", vouchers: "Vouchers",
+    service: "Service fee", total: "Total", pay: "Pay", review: "Review in checkout", safe: "🔒 Nothing is charged until you confirm.", change: "Change",
+    replaced: "Replaced by the updated order below", paidRow: (a) => `✓ Paid ${a} · vouchers issued`,
+    done: (n, v) => `Done! Issuing ${n} voucher${n > 1 ? "s" : ""} for ${v} — I'll check free slots, book a time and send you the codes.`,
+    conn: "⚠ Connection problem. Please try again.",
+  },
+  ka: {
+    sub: (a) => `შეთავაზებებს გიყიდით · ${a}`, title: "რას გეგმავთ?",
+    intro: "მითხარით, რა გსურთ — ვიპოვი საუკეთესო შეთავაზებას თქვენთან ყველაზე ახლოს და მოვამზადებ ვაუჩერებს გადასახდელად.",
+    chips: ["იყიდე 2 ვაუჩერი გოგირდის აბანოს კერძო ოთახზე უახლოეს აბანოში", "დამიჯავშნე ტანდემ ფრენა პარაპლანით გუდაურში ვიდეოთი", "იყიდე ცხელი ქვებით მასაჟის ვაუჩერი სასაჩუქრე ყუთით", "მინდა ღვინის ტური კახეთში"],
+    ph: "მისწერეთ Swoop AI-ს…", fromYou: (d) => `თქვენგან ${d}`, valid: (d) => `ვაუჩერი · მოქმედებს ${d}-მდე`, save: "დაზოგავთ", vouchers: "ვაუჩერები",
+    service: "მომსახურების საფასური", total: "სულ", pay: "გადახდა", review: "შეკვეთის გადახედვა", safe: "🔒 თანხა არ ჩამოიჭრება, სანამ არ დაადასტურებთ.", change: "შეცვლა",
+    replaced: "ჩანაცვლდა ქვემოთ განახლებული შეკვეთით", paidRow: (a) => `✓ გადახდილია ${a} · ვაუჩერები გაიცა`,
+    done: (n, v) => `მზადაა! ვქმნი ${n} ვაუჩერს — ${v}. შევამოწმებ თავისუფალ დროს, დავჯავშნი და კოდებს SMS-ით გამოგიგზავნით.`,
+    conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
+  },
+};
+const t = () => L[LANG];
+const ka = () => LANG === "ka";
+const lname = (l) => (ka() && l.nameKa) || l.name;
+const lopts = (l) => (ka() && l.optionsKa) || l.options;
+const kmTxt = (v) => dist(v).replace(" km", ka() ? " კმ" : " km");
+const locShort = () => (ka() && S.data.location.labelKa ? S.data.location.labelKa : S.data.location.label).split(",")[0];
+function setLang(l) {
+  LANG = l; localStorage.setItem("agentpay_lang", l); AgentPayUI.lang = l;
+  if (S.chatOpen) { const keep = [...$("#msgs").children].filter((e) => !e.classList.contains("welcome")); closeChat(); chatLog = keep; openChat(); }
+}
+
+function openChat(prefill) {
+  if (S.chatOpen) return;
+  S.chatOpen = true;
+  const c = document.createElement("div");
+  c.className = "chat";
+  c.id = "chat";
+  c.innerHTML = `
+    <div class="chathead"><button onclick="closeChat()">${I.back}</button><div class="logo">✦</div>
+      <div style="flex:1;min-width:0"><b>Swoop AI <span class="beta">Beta</span></b><small><i></i>${t().sub(esc(locShort()))}</small></div>
+      <div class="langsw"><button class="${LANG === "en" ? "on" : ""}" onclick="setLang('en')">EN</button><button class="${LANG === "ka" ? "on" : ""}" onclick="setLang('ka')">ქარ</button></div></div>
+    <div class="msgs" id="msgs">
+      <div class="welcome"><div class="logo">✦</div><h2>${t().title}</h2><p>${t().intro}</p>
+        <div class="sugg">${t().chips.map((c) => `<button>${esc(c)}</button>`).join("")}</div></div>
+    </div>
+    <form class="composer" id="composer"><button type="button" class="mic" id="mic">${I.mic}</button><input id="q" placeholder="${t().ph}" autocomplete="off" /><button class="send">${I.send}</button></form>`;
+  $("#screen").appendChild(c);
+  c.querySelectorAll(".sugg button").forEach((b) => b.onclick = () => send(b.textContent));
+  $("#composer").onsubmit = (e) => { e.preventDefault(); send($("#q").value); };
+  setupMic();
+  if (chatLog.length) { $(".welcome").remove(); chatLog.forEach((el) => $("#msgs").appendChild(el)); scrollChat(); }
+  if (prefill) $("#q").value = prefill;
+  setTimeout(() => $("#q")?.focus(), 250);
+}
+function closeChat() {
+  const c = $("#chat");
+  if (c) { chatLog = [...$("#msgs").children].filter((e) => !e.classList.contains("welcome")); c.remove(); }
+  S.chatOpen = false;
+}
+let chatLog = [];
+const scrollChat = () => { const m = $("#msgs"); if (m) m.scrollTop = m.scrollHeight; };
+function bubble(cls, text) { const b = document.createElement("div"); b.className = "b " + cls; b.textContent = text; $("#msgs").appendChild(b); scrollChat(); return b; }
+
+async function send(text) {
+  text = text.trim();
+  if (!text || S.busy) return;
+  S.busy = true;
+  // auto-switch: the user typed (or tapped) Georgian → the whole AI flow answers in Georgian, and vice versa
+  if (/[Ⴀ-ჿ]/.test(text) !== ka()) { LANG = ka() ? "en" : "ka"; localStorage.setItem("agentpay_lang", LANG); AgentPayUI.lang = LANG;
+    document.querySelectorAll(".langsw button").forEach((b, i) => b.classList.toggle("on", (i === 1) === ka())); $("#q").placeholder = t().ph; }
+  $("#q").value = "";
+  $(".welcome")?.remove();
+  bubble("me", text);
+  const tb = AgentPayUI.thinking($("#msgs"), { accent: "#161616", onUpdate: scrollChat });
+  const replyHolder = document.createElement("div");
+  replyHolder.style.display = "contents";
+  $("#msgs").appendChild(replyHolder);
+  hoodClear(text);
+  await agent.send(text, (e) => {
+    hoodEvent(e);
+    if (e.type === "status") tb.status(e.text);
+    if (e.type === "thinking") tb.thought(e.text);
+    if (e.type === "tool") tb.step(e.label, !e.result?.error);
+    if (e.type === "payment") tb.settled().then(() => orderCard(e.payment));
+    if (e.type === "reply" && e.text) tb.settled().then(() => { const b = document.createElement("div"); b.className = "b ai"; b.textContent = e.text; replyHolder.appendChild(b); scrollChat(); });
+    if (e.type === "error") tb.settled().then(() => bubble("ai", "⚠ " + e.text));
+    if (e.type === "done") tb.done();
+  }).catch(() => { tb.done(); bubble("ai", t().conn); });
+  await tb.settled();
+  S.busy = false;
+  refreshHood();
+}
+
+function orderCard(p) {
+  // Mirror the agent's proposal into the app's own cart, so checkout shows it too.
+  S.cart = { venueId: p.venue.id, lines: p.lines.map((l) => ({ itemId: l.itemId, qty: l.qty, optionIds: l.options.map((n) => item(l.itemId).options.find((o) => o.name === n).id) })) };
+  S.agentPayment = p;
+  S.cartSignature = sig();
+  document.querySelectorAll(".ocard:not(.paid) .acts").forEach((a) => a.innerHTML = `<div class="note">${t().replaced}</div>`);
+  const v = venue(p.venue.id);
+  const vn = (ka() && p.venue.nameKa) || p.venue.name, va = (ka() && p.venue.areaKa) || p.venue.area;
+  const saved = p.lines.reduce((s, l) => s + ((item(l.itemId)?.meta?.oldPrice ?? 0) - (item(l.itemId)?.price ?? 0)) * l.qty, 0);
+  const card = document.createElement("div");
+  card.className = "ocard";
+  card.innerHTML = `
+    <div class="vh"><img src="${p.venue.image}" alt=""><div><b>${esc(vn)}</b><small>${esc(va)} · ${t().fromYou(kmTxt(v))}</small></div></div>
+    <div class="ls">${p.lines.map((l) => { const it = item(l.itemId); return `<div class="line">${l.image ? `<img src="${l.image}" alt="">` : ""}<span class="q">${l.qty}×</span>
+      <div class="nm">${esc(lname(l))}${l.options.length ? `<div class="mods">+ ${esc(lopts(l).join(", "))}</div>` : ""}${l.note ? `<div class="mods">“${esc(l.note)}”</div>` : ""}<div class="mods"><span class="pill" style="font-size:11px;padding:1px 5px">-${it.meta.discount}%</span> ${t().valid(esc(it.meta.validUntil))}</div></div>
+      <span class="prc">${money2(l.qty * l.unitPrice)}<s>${money2(l.qty * (it.meta.oldPrice + (l.unitPrice - it.price)))}</s></span></div>`; }).join("")}</div>
+    <div class="sums">
+      <div class="sum green"><span>${t().save}</span><span>−${money2(saved)}</span></div>
+      <div class="sum"><span>${t().vouchers}</span><span>${money2(p.subtotal)}</span></div>
+      <div class="sum"><span>${t().service}</span><span>${money2(p.serviceFee)}</span></div>
+      <div class="sum total"><span>${t().total}</span><span>${money2(p.total)}</span></div>
+    </div>
+    <div class="pm"><span class="visa">VISA</span>${esc(p.paymentMethod)}<span style="margin-left:auto;color:var(--muted)">${t().change}</span></div>
+    <div class="acts">
+      <button class="btn pay">${t().pay} ${money2(p.total)}</button>
+      <button class="btn ghost edit">${t().review}</button>
+      <div class="note">${t().safe}</div>
+    </div>`;
+  card.querySelector(".pay").onclick = async (ev) => {
+    ev.target.disabled = true;
+    const paid = await payWithFaceId(p);
+    if (!paid) { ev.target.disabled = false; return; }
+    card.classList.add("paid");
+    card.querySelector(".acts").innerHTML = `<div class="paidrow">${t().paidRow(money2(paid.total))}</div>`;
+    bubble("ai", t().done(paid.lines.reduce((s, l) => s + l.qty, 0), vn));
+    setTimeout(() => startFulfilment(paid, true), 1400);
+  };
+  card.querySelector(".edit").onclick = () => { closeChat(); go("checkout"); };
+  $("#msgs").appendChild(card);
+  scrollChat();
+}
+
+function setupMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const mic = $("#mic");
+  if (!SR) { mic.style.display = "none"; return; }
+  let rec;
+  mic.onclick = () => {
+    if (rec) { rec.stop(); return; }
+    rec = new SR(); rec.lang = ka() ? "ka-GE" : "en-US"; rec.interimResults = true;
+    mic.classList.add("rec");
+    rec.onresult = (e) => { $("#q").value = [...e.results].map((r) => r[0].transcript).join(""); };
+    rec.onend = () => { mic.classList.remove("rec"); rec = null; if ($("#q").value.trim()) send($("#q").value); };
+    rec.start();
+  };
+}
+function toast(t) { const d = document.createElement("div"); d.className = "toast"; d.textContent = t; $("#screen").appendChild(d); setTimeout(() => d.remove(), 3200); }
+
+// ======================= under the hood =======================
+function hoodClear(text) { $("#hood-trace").innerHTML = `<div class="ev st">${USER_ID} → <b>${esc(text)}</b></div>`; }
+function hoodEvent(e) {
+  const t = $("#hood-trace");
+  const div = document.createElement("div");
+  if (e.type === "status") { div.className = "ev st"; div.textContent = "⋯ agent: " + e.text; }
+  else if (e.type === "thinking") { div.className = "ev st"; div.style.color = "#d9cf9a"; div.textContent = "💭 " + e.text; }
+  else if (e.type === "tool") { div.className = "ev"; div.innerHTML = `<b>${esc(e.tool)}</b>(${esc(JSON.stringify(e.args))})\n→ ${esc(JSON.stringify(e.result).slice(0, 420))}`; }
+  else if (e.type === "payment") { div.className = "ev pay"; div.innerHTML = `<b>payment intent</b> ${esc(e.payment.id)} · ${money2(e.payment.total)} · <span class="s-await">awaiting_user_confirmation</span>`; }
+  else if (e.type === "reply") { div.className = "ev st"; div.textContent = "reply: " + e.text; }
+  else if (e.type === "error") { div.className = "ev"; div.style.borderColor = "#f04"; div.textContent = "error: " + e.text; }
+  else return;
+  t.appendChild(div);
+  t.parentElement.scrollTop = t.parentElement.scrollHeight;
+}
+async function refreshHood() {
+  const s = await fetch("/debug/swoop").then((r) => r.json());
+  $("#hood-agent").innerHTML = `${s.mode === "gemini" ? `Gemini <b style="color:#fff">${esc(s.model)}</b>` : `<b style="color:#ffc24b">MOCK</b> (no Gemini calls)`} · function calling · per-tenant memory`;
+  const u = Object.entries(s.memory);
+  $("#hood-mem").innerHTML = u.length ? u.map(([id, m]) => `<div><b style="color:#fff">${esc(id)}</b> · ${m.history.length} messages<br>${m.preferences.map((p) => `<span class="tag">${esc(p)}</span>`).join("") || '<span style="color:#8f8a72">no saved preferences</span>'}</div>`).join("") : '<span style="color:#8f8a72">empty</span>';
+  $("#hood-pay").innerHTML = s.payments.length ? s.payments.slice(-4).reverse().map((p) => `<div style="margin-bottom:6px">${esc(p.id)} · ${money2(p.total)} · ${p.history.map((h) => `<span class="s-${h.status.split("_")[0]}">${h.status}</span><span style="color:#8f8a72">(${h.by})</span>`).join(" → ")}</div>`).join("") : '<span style="color:#8f8a72">none</span>';
+}
+$("#reset").onclick = async () => { await fetch("/debug/swoop/reset", { method: "POST" }); location.reload(); };
+$("#hoodtoggle").onclick = () => { $("#hood").classList.toggle("off"); $("#hoodtoggle").textContent = $("#hood").classList.contains("off") ? "Show under the hood" : "Hide under the hood"; };
+
+// ======================= boot =======================
+(async () => {
+  S.data = await fetch("/demo-data/swoop").then((r) => r.json());
+  AgentPayUI.lang = LANG;
+  agent = AgentPay.init({ key: "pk_swoop_demo", userId: USER_ID, location: S.data.location });
+  $("#fab").onclick = () => openChat();
+  renderNav();
+  render();
+  refreshHood();
+  if (new URLSearchParams(location.search).has("clean")) { $("#hood").classList.add("off"); $("#hoodtoggle").textContent = "Show under the hood"; }
+})();
+</script>
+</body>
+</html>

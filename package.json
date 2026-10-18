@@ -1,0 +1,8 @@
+{
+  "name": "alde-b2b",
+  "private": true,
+  "scripts": {
+    "proto": "bun prototype-agent-harness/server.ts",
+    "proto:mock": "AGENTPAY_MOCK=1 bun prototype-agent-harness/server.ts"
+  }
+}

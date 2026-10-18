@@ -1,0 +1,1087 @@
+<!doctype html>
+<!-- PROTOTYPE — throwaway investor demo. A tkt.ge look-alike host app with the AgentPay agent built in via /sdk.js.
+     Everything tkt.ge-specific (events, ticket picker, checkout, e-tickets) is "the client's app"; the agent + payments come from our API.
+     TEST CASE: "Buy 3 tickets for movie The odyssey on 18 Oct in Cavea City Mall Saburtalo on 22:00 in central seats in any of the last three rows"
+       → 3× The Odyssey, 18 Oct 22:00, Cavea City Mall Saburtalo, "Last rows 10–12, central seats" → app assigns 3 adjacent central seats (seat map + e-tickets).
+     Georgian (first chip in ქარ mode): "იყიდე 3 ბილეთი ფილმზე „ოდისეა“ 18 ოქტომბერს, კავეა სითი მოლ საბურთალოში, 22:00-ზე, ცენტრალური ადგილები ბოლო სამი რიგიდან ერთ-ერთში" → same order.
+     Older case: "Buy 2 tickets for the Dinamo Tbilisi match this Sunday, East Stand". -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>tkt.ge — AI tickets demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+Georgian:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #1B1D27; --ink2: #272A37; --muted: #6F7383; --faint: #A3A6B1; --line: #E9EAEB; --bg: #F4F4F5; --chip: #F2F3F6;
+    --blue: #0F78FF; --blue-dark: #0C60CC; --blue-10: #E7F1FF; --sky: #009DF6; --pink: #FF005F; --navy: #2B2F59; --lav: #D4CDFD; --purple: #613C85;
+    --green: #17B26A; --radius: 16px;
+    font-family: Inter, "Noto Sans Georgian", -apple-system, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: #e7e8ee; color: var(--ink); min-height: 100vh; display: flex; justify-content: center; align-items: center; gap: 40px; padding: 24px; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  img { display: block; }
+
+  /* ---------- phone frame ---------- */
+  .phone { width: 390px; height: 844px; border-radius: 54px; background: #111; padding: 11px; box-shadow: 0 30px 80px rgba(0,0,0,.25); flex-shrink: 0; position: relative; }
+  .screen { width: 100%; height: 100%; border-radius: 44px; overflow: hidden; background: var(--bg); position: relative; display: flex; flex-direction: column; }
+  .island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 120px; height: 34px; background: #111; border-radius: 20px; z-index: 100; }
+  .statusbar { height: 50px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 30px 6px 34px; font-weight: 700; font-size: 15px; flex-shrink: 0; z-index: 40; background: #fff; }
+  .statusbar.dark { background: var(--navy); color: #fff; }
+  .statusbar.dark svg * { fill: #fff; stroke: #fff; }
+  .statusbar .icons { display: flex; gap: 6px; align-items: center; }
+  @media (max-width: 520px) {
+    body { padding: 0; background: #fff; display: block; }
+    .phone { width: 100vw; height: 100dvh; border-radius: 0; padding: 0; box-shadow: none; }
+    .screen { border-radius: 0; }
+    .island, .statusbar, .hood { display: none !important; }
+    .chat { top: 0 !important; }
+  }
+  .view { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; scrollbar-width: none; }
+  .view::-webkit-scrollbar { display: none; }
+  .card { background: #fff; border-radius: 0 0 24px 24px; padding-bottom: 14px; }
+  .panel { background: #fff; border-radius: 24px; margin-top: 10px; padding: 16px 0; }
+
+  /* ---------- home ---------- */
+  .topbar { display: flex; align-items: center; gap: 10px; padding: 4px 16px 12px; }
+  .topbar .logo svg { height: 26px; width: auto; display: block; }
+  .loc { margin-left: auto; display: flex; align-items: center; gap: 5px; font-weight: 600; font-size: 12.5px; color: var(--muted); max-width: 150px; }
+  .loc span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lang { border: 1px solid var(--line); border-radius: 10px; padding: 5px 8px; font-size: 12px; font-weight: 700; }
+  .search { margin: 0 16px 14px; display: flex; align-items: center; gap: 10px; background: #fff; border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 14px; color: var(--muted); font-size: 15px; width: calc(100% - 32px); text-align: left; }
+  .search .ai { margin-left: auto; color: #fff; background: linear-gradient(90deg, var(--blue), var(--pink)); font-weight: 700; font-size: 12px; padding: 4px 9px; border-radius: 99px; }
+  .catrows { overflow-x: auto; scrollbar-width: none; padding: 0 16px; }
+  .catrows::-webkit-scrollbar { display: none; }
+  .catrow { display: flex; gap: 8px; margin-bottom: 8px; width: max-content; }
+  .catp { display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 12px; padding: 10px 14px; font-size: 14px; font-weight: 500; white-space: nowrap; }
+  .catp.on { background: var(--ink); color: #fff; }
+  .catp .e { font-size: 18px; }
+  .banner { margin: 14px 12px 0; border-radius: 18px; overflow: hidden; position: relative; height: 190px; display: block; width: calc(100% - 24px); text-align: left; background: #000; }
+  .banner img { width: 100%; height: 100%; object-fit: cover; opacity: .75; }
+  .banner .ov { position: absolute; inset: 0; padding: 18px; background: linear-gradient(90deg, rgba(10,12,30,.92) 0%, rgba(10,12,30,.4) 65%, transparent); color: #fff; display: flex; flex-direction: column; justify-content: center; }
+  .banner .k { font-size: 11px; font-weight: 800; letter-spacing: .12em; color: #FFD53D; text-transform: uppercase; }
+  .banner h3 { font-size: 25px; font-weight: 900; line-height: 1.02; text-transform: uppercase; margin: 6px 0 8px; max-width: 230px; letter-spacing: -.3px; }
+  .banner h3 em { font-style: normal; color: #FFD53D; font-size: 16px; display: block; margin: 2px 0; }
+  .banner .d { font-weight: 800; font-size: 13px; }
+  .dots { display: flex; gap: 5px; justify-content: center; margin-top: 10px; }
+  .dots i { width: 14px; height: 5px; border-radius: 3px; background: var(--line); }
+  .dots i.on { background: var(--ink2); width: 22px; }
+  .stories { display: flex; gap: 14px; overflow-x: auto; padding: 0 16px; scrollbar-width: none; }
+  .story { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 76px; flex-shrink: 0; font-size: 12px; font-weight: 500; text-align: center; }
+  .story .ring { width: 72px; height: 72px; border-radius: 50%; padding: 3px; background: linear-gradient(135deg, #FF7A00, #FF005F); }
+  .story .ring img, .story .ring div { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid #fff; display: grid; place-items: center; font-size: 26px; }
+  .story span { width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sec { display: flex; align-items: center; gap: 8px; padding: 0 16px 12px; }
+  .sec h2 { font-size: 18px; font-weight: 800; letter-spacing: -.2px; }
+  .sec .fire { color: var(--pink); }
+  .sec a { margin-left: auto; color: var(--blue); font-weight: 600; font-size: 13.5px; }
+  .carousel { display: flex; gap: 12px; overflow-x: auto; padding: 0 16px 4px; scrollbar-width: none; }
+  .ecard { width: 220px; flex-shrink: 0; text-align: left; }
+  .poster { position: relative; border-radius: 16px; overflow: hidden; aspect-ratio: 4/5; background: #222; }
+  .poster img { width: 100%; height: 100%; object-fit: cover; }
+  .poster .ttl { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 12px 12px; background: linear-gradient(transparent, rgba(0,0,0,.82)); color: #fff; font-weight: 900; font-size: 17px; line-height: 1.1; text-transform: uppercase; letter-spacing: -.2px; }
+  .poster .ttl small { display: block; font-size: 10.5px; font-weight: 700; color: #FFD53D; letter-spacing: .06em; margin-top: 4px; }
+  .datebadge { position: absolute; left: 10px; top: 10px; width: 50px; padding: 6px 0; border-radius: 12px; background: rgba(27,29,39,.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.18); color: #fff; text-align: center; line-height: 1.1; }
+  .datebadge b { display: block; font-size: 18px; font-weight: 700; }
+  .datebadge span { font-size: 11.5px; }
+  .ename { font-weight: 700; font-size: 15px; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .esub { color: var(--muted); font-size: 12.5px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .eprice { font-weight: 700; font-size: 13.5px; margin-top: 4px; color: var(--ink); }
+  .eprice span { color: var(--muted); font-weight: 500; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; padding: 0 16px 120px; }
+  .grid .ecard { width: auto; min-width: 0; }
+  .grid .poster .ttl { font-size: 13.5px; padding: 30px 9px 9px; }
+  .grid .datebadge { width: 42px; left: 8px; top: 8px; }
+  .grid .datebadge b { font-size: 15px; }
+  .aistrip { margin: 0 16px; display: flex; gap: 12px; align-items: center; padding: 14px; border-radius: 16px; background: linear-gradient(120deg, #2B2F59 0%, #613C85 70%, #FF005F 140%); color: #fff; width: calc(100% - 32px); text-align: left; }
+  .aistrip .ic { width: 42px; height: 42px; border-radius: 12px; background: rgba(255,255,255,.14); display: grid; place-items: center; font-size: 20px; flex-shrink: 0; }
+  .aistrip b { font-size: 15px; font-weight: 800; display: block; }
+  .aistrip small { font-size: 12.5px; opacity: .85; }
+
+  /* ---------- nav + fab ---------- */
+  .nav { display: flex; justify-content: space-around; border-top: 1px solid var(--line); background: #fff; padding: 8px 0 22px; flex-shrink: 0; }
+  .nav button { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; color: var(--faint); width: 70px; position: relative; }
+  .nav button.on { color: var(--ink); }
+  .nav svg { width: 24px; height: 24px; }
+  .nav .badge { position: absolute; top: -3px; right: 16px; background: var(--pink); color: #fff; font-size: 10px; font-weight: 800; border-radius: 99px; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 4px; }
+  .fab { position: absolute; right: 16px; bottom: 96px; z-index: 20; background: var(--blue); color: #fff; border-radius: 99px; padding: 13px 18px 13px 15px; font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 22px rgba(15,120,255,.42); }
+  .fab.hide { display: none; }
+
+  /* ---------- event ---------- */
+  .ehero { position: relative; height: 300px; background: #111; }
+  .ehero img { width: 100%; height: 100%; object-fit: cover; }
+  .ehero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(rgba(0,0,0,.25), transparent 30%, transparent 55%, rgba(0,0,0,.55)); }
+  .ehero .btns { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; justify-content: space-between; z-index: 2; }
+  .circle { width: 38px; height: 38px; border-radius: 50%; background: #fff; display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+  .ebody { background: #fff; border-radius: 24px 24px 0 0; margin-top: -24px; position: relative; padding: 18px 16px 8px; }
+  .kchip { display: inline-flex; align-items: center; gap: 5px; background: var(--blue-10); color: var(--blue); padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; }
+  .ebody h1 { font-size: 24px; font-weight: 800; letter-spacing: -.4px; line-height: 1.15; margin: 10px 0 4px; }
+  .ebody .sub { color: var(--muted); font-size: 14px; }
+  .info { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .info .ic { width: 42px; height: 42px; border-radius: 12px; background: var(--bg); display: grid; place-items: center; flex-shrink: 0; color: var(--ink2); }
+  .info b { font-size: 14.5px; font-weight: 700; display: block; }
+  .info small { color: var(--muted); font-size: 12.5px; }
+  .info .cal { text-align: center; line-height: 1; }
+  .info .cal b { font-size: 16px; } .info .cal small { font-size: 10px; text-transform: uppercase; font-weight: 700; color: var(--pink); }
+  .mapbox { margin: 14px 0 4px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); }
+  .mapbox > svg { display: block; width: 100%; height: 140px; }
+  .mapbox .cap svg { color: var(--pink); flex-shrink: 0; }
+  .mapbox .cap { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-size: 13px; font-weight: 600; }
+  .mapbox .cap a { margin-left: auto; color: var(--blue); font-weight: 700; }
+  .about { color: var(--ink2); font-size: 14px; line-height: 1.5; padding: 10px 0 4px; }
+  .h3 { font-size: 18px; font-weight: 800; margin: 18px 0 10px; }
+  .tcat { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1.5px solid var(--line); border-radius: 14px; margin-bottom: 10px; }
+  .tcat.on { border-color: var(--blue); background: #F7FAFF; }
+  .tcat .t { flex: 1; min-width: 0; }
+  .tcat b { font-size: 15px; font-weight: 700; display: block; }
+  .tcat small { color: var(--muted); font-size: 12.5px; display: block; }
+  .tcat .left { color: var(--pink); font-weight: 600; font-size: 11.5px; margin-top: 3px; }
+  .tcat .pr { font-weight: 800; font-size: 15.5px; margin-bottom: 6px; text-align: right; }
+  .qty { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+  .qty button { width: 30px; height: 30px; border-radius: 50%; background: var(--bg); font-size: 18px; font-weight: 600; display: grid; place-items: center; line-height: 1; }
+  .qty button.plus { background: var(--blue); color: #fff; }
+  .qty span { min-width: 12px; text-align: center; }
+  .buybar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 15; background: #fff; border-top: 1px solid var(--line); padding: 12px 16px 26px; display: flex; align-items: center; gap: 12px; }
+  .buybar .s { font-size: 12.5px; color: var(--muted); }
+  .buybar .s b { display: block; color: var(--ink); font-size: 18px; font-weight: 800; }
+  .btn { background: var(--blue); color: #fff; border-radius: 12px; padding: 15px 16px; font-weight: 700; font-size: 16px; flex: 1; display: flex; justify-content: center; gap: 8px; }
+  .btn:disabled { opacity: .45; }
+  .btn.sec2 { background: var(--blue-10); color: var(--blue); }
+  .btn.dark { background: var(--ink); }
+
+  /* ---------- checkout ---------- */
+  .pagehead { display: flex; align-items: center; gap: 12px; padding: 6px 16px 12px; position: sticky; top: 0; background: #fff; z-index: 5; border-bottom: 1px solid var(--line); }
+  .pagehead h1 { font-size: 18px; font-weight: 800; }
+  .pagehead .vsub { color: var(--muted); font-size: 12.5px; }
+  .steps3 { display: flex; gap: 6px; padding: 12px 16px 0; }
+  .steps3 i { flex: 1; height: 4px; border-radius: 4px; background: var(--line); }
+  .steps3 i.on { background: var(--blue); }
+  .block { background: #fff; border-radius: 18px; margin: 10px 12px; padding: 14px; }
+  .block h3 { font-size: 16px; font-weight: 800; margin-bottom: 10px; }
+  .mini { display: flex; gap: 12px; align-items: center; }
+  .mini img { width: 58px; height: 72px; border-radius: 10px; object-fit: cover; }
+  .mini b { font-size: 15px; font-weight: 800; display: block; line-height: 1.2; }
+  .mini small { color: var(--muted); font-size: 12.5px; display: block; margin-top: 2px; }
+  .line { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: flex-start; }
+  .line:last-child { border-bottom: 0; }
+  .line .q { color: var(--blue); font-weight: 800; min-width: 24px; }
+  .line .nm { flex: 1; font-weight: 600; font-size: 14px; }
+  .line .mods { color: var(--muted); font-size: 12px; font-weight: 500; margin-top: 2px; }
+  .line .pr { font-weight: 700; font-size: 14px; }
+  .opt { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); font-weight: 600; font-size: 14.5px; width: 100%; text-align: left; }
+  .opt:last-child { border-bottom: 0; }
+  .opt small { display: block; color: var(--muted); font-weight: 500; font-size: 12px; }
+  .sw { width: 42px; height: 26px; border-radius: 99px; background: var(--line); position: relative; flex-shrink: 0; margin-left: auto; transition: .2s; }
+  .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: .2s; }
+  .opt.on .sw { background: var(--blue); }
+  .opt.on .sw::after { left: 19px; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 4px 0; font-weight: 600; font-size: 14.5px; }
+  .row small { display: block; color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .row .chev { margin-left: auto; color: var(--faint); font-size: 20px; }
+  .mc { width: 38px; height: 26px; border-radius: 5px; background: #1B1D27; position: relative; flex-shrink: 0; }
+  .mc::before, .mc::after { content: ""; position: absolute; top: 6px; width: 14px; height: 14px; border-radius: 50%; }
+  .mc::before { left: 7px; background: #EB001B; } .mc::after { left: 15px; background: #F79E1B; mix-blend-mode: screen; opacity: .95; }
+  .sum { display: flex; justify-content: space-between; color: var(--muted); font-size: 14px; padding: 4px 0; }
+  .sum.total { color: var(--ink); font-weight: 800; font-size: 17px; padding-top: 8px; }
+  .terms { color: var(--muted); font-size: 11.5px; text-align: center; padding: 0 24px 10px; }
+
+  /* ---------- tickets (confirmation) ---------- */
+  .tkhead { background: var(--navy); color: #fff; padding: 6px 20px 70px; text-align: center; }
+  .tkhead .ok { width: 54px; height: 54px; border-radius: 50%; background: var(--green); margin: 4px auto 10px; display: grid; place-items: center; }
+  .tkhead h1 { font-size: 22px; font-weight: 800; }
+  .tkhead p { opacity: .8; font-size: 13.5px; margin-top: 4px; }
+  .tkhead .x { position: absolute; left: 14px; top: 6px; color: #fff; }
+  .tickets { margin-top: -54px; padding: 0 18px 20px; display: flex; flex-direction: column; gap: 16px; }
+  .tk { background: #fff; border-radius: 20px; box-shadow: 0 10px 30px rgba(27,29,39,.14); overflow: hidden; position: relative; }
+  .tk .top { display: flex; gap: 12px; padding: 14px; }
+  .tk .top > div { padding-right: 40px; }
+  .tk .top img { width: 64px; height: 80px; border-radius: 10px; object-fit: cover; }
+  .tk .top b { font-size: 16px; font-weight: 800; display: block; line-height: 1.2; }
+  .tk .top small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+  .tk .grid2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 0 14px 14px; }
+  .tk .grid2 div small { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+  .tk .grid2 div b { font-size: 14px; font-weight: 700; }
+  .tk .perf { position: relative; height: 0; border-top: 2px dashed var(--line); margin: 0 18px; }
+  .tk .perf::before, .tk .perf::after { content: ""; position: absolute; top: -13px; width: 24px; height: 24px; border-radius: 50%; background: var(--bg); }
+  .tk .perf::before { left: -32px; } .tk .perf::after { right: -32px; }
+  .tk .qr { padding: 16px 14px 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .tk .qr svg { width: 150px; height: 150px; }
+  .tk .qr code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted); letter-spacing: .08em; }
+  .tk .of { position: absolute; right: 12px; top: 12px; background: var(--blue-10); color: var(--blue); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 99px; }
+  .wallet { background: #000; color: #fff; border-radius: 12px; padding: 13px; font-weight: 700; font-size: 15px; display: flex; justify-content: center; align-items: center; gap: 8px; width: 100%; }
+  .agentpaid { display: flex; gap: 10px; align-items: center; background: #fff; border-radius: 14px; padding: 12px 14px; font-weight: 600; font-size: 13px; color: var(--purple); border: 1px solid var(--lav); }
+  .empty { text-align: center; color: var(--muted); padding: 60px 30px; font-size: 14px; }
+  .empty div { font-size: 46px; margin-bottom: 10px; }
+  .mylist { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .myt { background: #fff; border-radius: 16px; padding: 12px; display: flex; gap: 12px; align-items: center; text-align: left; width: 100%; }
+  .myt img { width: 56px; height: 70px; border-radius: 10px; object-fit: cover; }
+  .myt b { font-size: 15px; font-weight: 800; display: block; }
+  .myt small { display: block; color: var(--muted); font-size: 12.5px; }
+  .myt .n { margin-left: auto; background: var(--blue-10); color: var(--blue); font-weight: 800; font-size: 12px; padding: 4px 9px; border-radius: 99px; white-space: nowrap; }
+
+  /* ---------- cinema: sessions + seat map ---------- */
+  .sess { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .sess:last-child { border-bottom: 0; }
+  .sess .vn { font-size: 13.5px; font-weight: 700; display: flex; gap: 6px; align-items: baseline; }
+  .sess .vn small { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .times { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+  .tchip { border: 1.5px solid var(--line); border-radius: 10px; padding: 6px 10px; font-size: 13.5px; font-weight: 700; line-height: 1.1; text-align: center; }
+  .tchip small { display: block; font-size: 10px; color: var(--muted); font-weight: 600; }
+  .tchip.on { border-color: var(--blue); background: var(--blue); color: #fff; }
+  .tchip.on small { color: rgba(255,255,255,.8); }
+  .linkbtn { color: var(--blue); font-weight: 700; font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; }
+  .seatpick { margin: 0 0 10px 34px; background: var(--blue-10); border-radius: 12px; padding: 9px 11px; font-size: 13px; }
+  .seatpick b { font-weight: 800; color: var(--blue-dark); font-size: 14px; }
+  .seatpick small { display: block; color: var(--muted); font-size: 11.5px; margin: 2px 0 4px; }
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.45); z-index: 80; display: flex; align-items: flex-end; animation: fade .2s; }
+  .sheet { background: #fff; width: 100%; border-radius: 22px 22px 0 0; max-height: 92%; overflow-y: auto; padding: 8px 0 26px; animation: up .25s ease-out; scrollbar-width: none; }
+  .sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 10px; }
+  .sheet .shead { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; }
+  .sheet .shead b { font-size: 17px; font-weight: 800; display: block; }
+  .sheet .shead small { color: var(--muted); font-size: 12.5px; }
+  .sheet .shead button { margin-left: auto; }
+  .seatmap { padding: 6px 10px 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .screenarc { width: 270px; height: 26px; border-top: 4px solid var(--blue); border-radius: 50% 50% 0 0 / 100% 100% 0 0; text-align: center; font-size: 10px; letter-spacing: .3em; color: var(--muted); font-weight: 700; padding-top: 6px; margin-bottom: 8px; box-shadow: 0 -10px 18px -12px rgba(15,120,255,.6); }
+  .srow { display: flex; align-items: center; gap: 3px; }
+  .srow .rl { width: 18px; font-size: 10px; color: var(--faint); font-weight: 700; text-align: center; }
+  .srow .gap { width: 9px; }
+  .seat { width: 17px; height: 16px; border-radius: 5px 5px 3px 3px; background: #E6E8EE; display: grid; place-items: center; font-size: 8.5px; font-weight: 800; color: #fff; }
+  .seat.zone { background: #BFDBFF; }
+  .seat.taken { background: #A3A6B1; }
+  .seat.mine { background: var(--blue); box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--blue); }
+  .legend { display: flex; gap: 14px; justify-content: center; font-size: 11.5px; color: var(--muted); padding: 10px 0 4px; flex-wrap: wrap; }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .legend .seat { width: 13px; height: 12px; }
+
+  /* ---------- booking (live fulfilment) ---------- */
+  .holdbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; background: var(--blue-10); color: var(--blue-dark); border-radius: 12px; padding: 9px 12px; font-size: 13px; font-weight: 600; margin-bottom: 6px; transition: .3s; }
+  .holdbar b { font-variant-numeric: tabular-nums; font-size: 15px; }
+  .holdbar.held { background: #FFF4DE; color: #8A5300; }
+  .holdbar.ok { background: #E6F6EE; color: #0F7A49; }
+  .seat.scan { animation: seatscan 1.1s ease-in-out infinite; }
+  @keyframes seatscan { 50% { background: #7DB5FF; } }
+  .seat.held { background: #FFB020; animation: seatheld 1s ease-in-out infinite; }
+  @keyframes seatheld { 50% { transform: scale(1.18); } }
+  .seat.pop { animation: seatpop .45s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes seatpop { from { transform: scale(1.9); } }
+  .issued { display: flex; gap: 8px; }
+  .mtk { flex: 1; border: 1.5px solid var(--line); border-radius: 12px; padding: 8px 4px 6px; text-align: center; animation: up .4s ease-out both; font-size: 11.5px; font-weight: 700; }
+  .mtk svg { width: 64px; height: 64px; display: block; margin: 0 auto 4px; }
+  .mtk small { display: block; color: var(--muted); font-weight: 500; font-size: 10px; font-family: ui-monospace, Menlo, monospace; }
+  .sentrow { display: flex; gap: 8px; margin-top: 10px; animation: up .35s ease-out; }
+  .sentrow span { flex: 1; border-radius: 10px; padding: 9px 8px; font-size: 12.5px; font-weight: 700; text-align: center; background: var(--bg); }
+  .sentrow span.w { background: #000; color: #fff; }
+
+  /* ---------- AI chat ---------- */
+  .chat { position: absolute; inset: 50px 0 0 0; background: #fff; z-index: 55; display: flex; flex-direction: column; animation: up .25s ease-out; }
+  @keyframes up { from { transform: translateY(40%); opacity: .4; } }
+  @keyframes fade { from { opacity: 0; } }
+  .chathead { display: flex; align-items: center; gap: 10px; padding: 8px 14px 12px; border-bottom: 1px solid var(--line); }
+  .ailogo { border-radius: 12px; background: linear-gradient(135deg, var(--sky) 0%, var(--blue) 45%, var(--pink) 100%); color: #fff; display: grid; place-items: center; }
+  .chathead .ailogo { width: 38px; height: 38px; font-size: 19px; }
+  .chathead b { font-weight: 800; font-size: 16px; display: block; }
+  .langsw { display: flex; background: var(--bg); border-radius: 99px; padding: 3px; flex-shrink: 0; }
+  .langsw button { padding: 5px 9px; border-radius: 99px; font-weight: 800; font-size: 12px; color: var(--muted); }
+  .langsw button.on { background: #fff; color: var(--blue); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .chathead small { color: var(--muted); font-weight: 500; font-size: 12px; display: flex; align-items: center; gap: 5px; }
+  .chathead small i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; }
+  .msgs { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; scrollbar-width: none; background: #fff; }
+  .b { max-width: 82%; padding: 10px 14px; border-radius: 18px; font-size: 14.5px; font-weight: 500; line-height: 1.4; white-space: pre-wrap; }
+  .b.me { align-self: flex-end; background: var(--blue); color: #fff; border-bottom-right-radius: 6px; }
+  .b.ai { align-self: flex-start; background: var(--bg); border-bottom-left-radius: 6px; }
+  .welcome { text-align: center; padding: 20px 6px 8px; }
+  .welcome .ailogo { width: 60px; height: 60px; border-radius: 18px; margin: 0 auto 12px; font-size: 30px; }
+  .welcome h2 { font-size: 21px; font-weight: 800; }
+  .welcome p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .sugg { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+  .sugg button { background: var(--bg); color: var(--ink2); padding: 11px 14px; border-radius: 12px; font-weight: 600; font-size: 14px; text-align: left; border: 1px solid var(--line); }
+  .sugg button:first-child { background: var(--blue-10); color: var(--blue-dark); border-color: #CFE4FF; }
+  .steps { align-self: flex-start; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; font-weight: 500; color: var(--muted); padding: 2px 4px; max-width: 92%; }
+  .step { display: flex; gap: 8px; align-items: flex-start; animation: fade .3s; }
+  .step .d { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; margin-top: 1px; display: grid; place-items: center; font-size: 10px; }
+  .step.ok .d { background: var(--blue); color: #fff; }
+  .step.err .d { background: var(--pink); color: #fff; }
+  .step.run .d { border: 2px solid var(--blue-10); border-top-color: var(--blue); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ocard { align-self: stretch; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,.06); animation: up .3s ease-out; }
+  .ocard .vh { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .ocard .vh img { width: 48px; height: 60px; border-radius: 10px; object-fit: cover; }
+  .ocard .vh b { font-weight: 800; font-size: 15px; display: block; line-height: 1.2; }
+  .ocard .vh small { color: var(--muted); font-size: 12px; display: block; margin-top: 2px; }
+  .ocard .ls { padding: 2px 14px; }
+  .ocard .sums { padding: 8px 14px; border-top: 1px solid var(--line); }
+  .ocard .sum { font-size: 13.5px; padding: 2px 0; }
+  .ocard .sum.total { font-size: 16px; }
+  .ocard .pm { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); font-weight: 600; font-size: 14px; }
+  .ocard .acts { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .ocard .note { font-size: 11.5px; color: var(--muted); text-align: center; }
+  .ocard.paid { border-color: var(--green); }
+  .paidrow { display: flex; align-items: center; gap: 8px; color: var(--green); font-weight: 800; justify-content: center; padding: 6px 0; }
+  .composer { display: flex; gap: 8px; align-items: center; padding: 10px 12px 26px; border-top: 1px solid var(--line); }
+  .composer input { flex: 1; background: var(--bg); border: 0; border-radius: 99px; padding: 13px 16px; font: inherit; font-size: 15px; outline: none; color: var(--ink); }
+  .composer .send { width: 44px; height: 44px; border-radius: 50%; background: var(--blue); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+  .composer .mic { width: 44px; height: 44px; border-radius: 50%; background: var(--bg); color: var(--blue); display: grid; place-items: center; flex-shrink: 0; }
+  .composer .mic.rec { background: var(--pink); color: #fff; }
+
+  /* ---------- Face ID ---------- */
+  .toast { position: absolute; top: 60px; left: 16px; right: 16px; z-index: 95; background: var(--ink); color: #fff; padding: 12px 14px; border-radius: 12px; font-weight: 600; font-size: 14px; animation: up .25s; }
+
+  /* ---------- under the hood (desktop only) ---------- */
+  .hood { width: 440px; height: 844px; background: #0f1720; color: #cfe3f1; border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.2); }
+  .hood.off { display: none; }
+  .hood h2 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .hood h2 small { margin-left: auto; font-size: 11px; color: #7fb7d8; font-weight: 600; }
+  .hood h4 { font-family: Inter, sans-serif; color: #7fb7d8; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; margin-bottom: 6px; }
+  .hood .pane { background: #16212d; border-radius: 12px; padding: 12px; overflow: auto; }
+  .hood .trace { flex: 1; }
+  .hood .ev { border-left: 2px solid var(--blue); padding: 2px 0 2px 8px; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
+  .hood .ev b { color: #fff; }
+  .hood .ev.pay { border-color: #1fc16b; }
+  .hood .ev.st { border-color: #3a4a5a; color: #7a8a9a; }
+  .hood .tag { display: inline-block; background: #22303f; padding: 1px 6px; border-radius: 4px; margin: 2px 4px 2px 0; }
+  .hood .s-awaiting { color: #ffc24b; } .hood .s-captured { color: #1fc16b; } .hood .s-cancelled { color: #ff6b6b; }
+  .hood .reset { margin-left: 8px; background: #22303f; color: #cfe3f1; padding: 4px 10px; border-radius: 6px; font-family: Inter, sans-serif; font-weight: 700; font-size: 11px; }
+  .hoodtoggle { position: fixed; right: 16px; bottom: 16px; background: #0f1720; color: #fff; padding: 8px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; z-index: 200; }
+  @media (max-width: 960px) { .hood, .hoodtoggle { display: none !important; } }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="island"></div>
+    <div class="screen" id="screen">
+      <div class="statusbar" id="statusbar"><span>9:41</span><span class="icons">
+        <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#000"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#000"/><rect x="10" y="2.5" width="3" height="9.5" rx="1" fill="#000"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#000"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2.5c2.3 0 4.4.9 6 2.4l1.2-1.3A10.4 10.4 0 0 0 8 .7 10.4 10.4 0 0 0 .8 3.6L2 4.9a8.6 8.6 0 0 1 6-2.4Zm0 3.6c1.3 0 2.5.5 3.4 1.3l1.2-1.3A6.6 6.6 0 0 0 8 4.3a6.6 6.6 0 0 0-4.6 1.8l1.2 1.3c.9-.8 2.1-1.3 3.4-1.3Zm0 3.6c.4 0 .8.2 1.1.4L8 11.3 6.9 10.1c.3-.2.7-.4 1.1-.4Z" fill="#000"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#000" opacity=".4" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#000"/><rect x="25" y="4.5" width="1.5" height="4" rx=".75" fill="#000" opacity=".4"/></svg>
+      </span></div>
+      <div class="view" id="view"></div>
+      <button class="fab" id="fab">✦ Ask tkt.ge AI</button>
+      <nav class="nav" id="nav"></nav>
+    </div>
+  </div>
+
+  <aside class="hood" id="hood">
+    <h2>✦ Under the hood <small>AgentPay · tenant: tktge</small></h2>
+    <div class="pane"><h4>Agent</h4><div id="hood-agent">…</div></div>
+    <div class="pane trace"><h4>Live agent trace</h4><div id="hood-trace"><span style="color:#7a8a9a">Waiting for a message…</span></div></div>
+    <div class="pane"><h4>tkt.ge tenant memory (isolated) <button class="reset" id="reset">Reset demo</button></h4><div id="hood-mem"></div></div>
+    <div class="pane"><h4>Payments (state machine)</h4><div id="hood-pay"></div></div>
+  </aside>
+  <button class="hoodtoggle" id="hoodtoggle">Hide under the hood</button>
+
+<script src="/sdk.js"></script>
+<script src="/agentpay-ui.js"></script>
+<script>
+// ======================= language (AI chat, payment, booking, e-tickets) =======================
+let LANG = localStorage.getItem("agentpay_lang") || "en";
+const L = {
+  en: {
+    sub: (a) => `Finds &amp; books tickets · near ${a}`, title: "What do you want to see?",
+    intro: "Tell me the event, day and seats — I'll find the tickets, build the order and get it ready to pay.",
+    chips: ["Buy 3 tickets for movie The odyssey on 18 Oct in Cavea City Mall Saburtalo on 22:00 in central seats in any of the last three rows",
+      "Buy 2 tickets for the Dinamo Tbilisi match this Sunday, East Stand", "Get 2 tickets for La Traviata this Saturday, parterre, with ticket insurance"],
+    ph: "Message tkt.ge AI…", tickets: "Tickets", service: "Service fee", total: "Total", pay: "Pay", review: "Review in checkout", change: "Change",
+    safe: "🔒 Nothing is charged until you confirm.", replaced: "Replaced by the updated order below", away: (d) => `${d} away`,
+    paidRow: (a) => `✓ Paid ${a} · e-tickets issued`, conn: "⚠ Connection problem. Please try again.",
+    done: (n, t, st) => `Done! Your ${n} e-tickets for ${t} are in My tickets${st ? ` — ${st}` : ""}. Enjoy!`,
+    pickAdj: "Picked for you: adjacent seats in the centre of", pickAny: "Picked for you: best available seats in", viewMap: "View on seat map ›",
+    row: "Row", seat: "Seat", seats: "seats", seatOne: "seat", hall: "Hall", screen: "SCREEN", free: "Free", sold: "Sold", held: "Held", yours: "Your seats",
+    central: ", central", sides: ", sides", adjIn: (z) => `Adjacent seats in the centre of ${z}`,
+    today: "Today", km: "km",
+    bookSeats: "Booking your seats", bookTix: "Booking your tickets", connecting: (v) => `Connecting to ${v} box office…`, live: "Live booking", yourEt: "Your e-tickets",
+    a0: (cin, v) => cin ? "Checking availability in Cavea's system" : `Checking availability at ${v}`,
+    a1: (cin, what, n) => cin ? `Seats held · ${what}` : `${n} tickets held`, a1d: (h) => `Locked for you for 10:00 while you pay · hold ${h}`,
+    scanning: (z) => `Scanning ${z}…`, checking: "Checking availability…", heldFor: (what) => `${what} held for you`, released: "Payment not completed — seats released",
+    b0: "Payment captured", b1: (cin, v) => cin ? "Seats confirmed in Cavea's system" : `Tickets confirmed by ${v}`, b1d: (what) => `${what} · status HELD → SOLD to you`,
+    b2: (n) => `Issuing ${n} e-ticket${n > 1 ? "s" : ""}`, b3: "Sent to your e-mail & Apple Wallet",
+    b3d: (n) => `${n} PDF tickets to your tkt.ge account e-mail · ${n} Wallet passes · SMS with booking code`,
+    b4: (cin) => cin ? "Ready — scan the QR at the hall entrance" : "Ready — scan the QR at the gate", b4d: (h, time) => `${h} · doors open 20 min before ${time}`,
+    confirming: "Confirming with the box office…", soldTo: (what) => `${what} — sold to you`, soldShort: "Sold to you",
+    mailSent: "✉ E-mail sent", smsSent: "💬 SMS sent",
+    going: "You're going!", etCount: (n, a, card) => `${n} e-ticket${n > 1 ? "s" : ""} · paid ${a} with ${card}`, of: (a, b) => `${a} of ${b}`,
+    viewSeats: "🪑 View your seats on the hall map", wallet: "Add to Apple Wallet", byAI: "✦ Found &amp; booked by tkt.ge AI in one message · you confirmed the payment with Face ID",
+    order: "Order", paid: "Paid", zone: "Zone",
+  },
+  ka: {
+    sub: () => "პოულობს და ყიდულობს ბილეთებს", title: "რისი ნახვა გსურთ?",
+    intro: "მითხარით ღონისძიება, დღე და ადგილები — ვიპოვი ბილეთებს, შევადგენ შეკვეთას და მოვამზადებ გადასახდელად.",
+    chips: ["იყიდე 3 ბილეთი ფილმზე „ოდისეა“ 18 ოქტომბერს, კავეა სითი მოლ საბურთალოში, 22:00-ზე, ცენტრალური ადგილები ბოლო სამი რიგიდან ერთ-ერთში",
+      "იყიდე 2 ბილეთი დინამო თბილისის მატჩზე ამ კვირას, აღმოსავლეთ ტრიბუნა", "იყიდე 2 ბილეთი ტრავიატაზე ამ შაბათს, პარტერი, ბილეთის დაზღვევით"],
+    ph: "მისწერეთ tkt.ge AI-ს…", tickets: "ბილეთები", service: "მომსახურების საფასური", total: "სულ", pay: "გადახდა", review: "შეკვეთის გადახედვა", change: "შეცვლა",
+    safe: "🔒 თანხა არ ჩამოიჭრება, სანამ არ დაადასტურებთ.", replaced: "ჩანაცვლდა ქვემოთ განახლებული შეკვეთით", away: (d) => `${d} თქვენგან`,
+    paidRow: (a) => `✓ გადახდილია ${a} · ელ. ბილეთები გაიცა`, conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
+    done: (n, t, st) => `მზადაა! „${t}“ — ${n} ელ. ბილეთი უკვე „ჩემს ბილეთებშია“${st ? ` (${st})` : ""}. კარგ დროს გისურვებთ!`,
+    pickAdj: "თქვენთვის შერჩეული გვერდიგვერდ ადგილები ზონაში:", pickAny: "თქვენთვის შერჩეული საუკეთესო ადგილები ზონაში:", viewMap: "დარბაზის სქემაზე ნახვა ›",
+    row: "რიგი", seat: "ადგილი", seats: "ადგილები", seatOne: "ადგილი", hall: "დარბაზი", screen: "ეკრანი", free: "თავისუფალი", sold: "გაყიდული", held: "დაჯავშნილი", yours: "თქვენი ადგილები",
+    central: ", ცენტრი", sides: ", გვერდები", adjIn: (z) => `გვერდიგვერდ ადგილები ზონაში: ${z}`,
+    today: "დღეს", km: "კმ",
+    bookSeats: "ადგილების დაჯავშნა", bookTix: "ბილეთების დაჯავშნა", connecting: (v) => `ვუკავშირდებით სალაროს: ${v}…`, live: "დაჯავშნა რეალურ დროში", yourEt: "თქვენი ელ. ბილეთები",
+    a0: (cin, v) => cin ? "ადგილების შემოწმება Cavea-ს სისტემაში" : `ადგილების შემოწმება: ${v}`,
+    a1: (cin, what, n) => cin ? `ადგილები დაჯავშნილია · ${what}` : `${n} ბილეთი დაჯავშნილია`, a1d: (h) => `თქვენთვის დაბლოკილია 10:00 წუთით, სანამ გადაიხდით · ჯავშანი ${h}`,
+    scanning: (z) => `ვამოწმებთ: ${z}…`, checking: "ვამოწმებთ ხელმისაწვდომობას…", heldFor: (what) => `${what} — დაჯავშნილია თქვენთვის`, released: "გადახდა ვერ დასრულდა — ადგილები გათავისუფლდა",
+    b0: "გადახდა ჩამოიჭრა", b1: (cin, v) => cin ? "ადგილები დადასტურდა Cavea-ს სისტემაში" : `ბილეთები დაადასტურა: ${v}`, b1d: (what) => `${what} · სტატუსი: დაჯავშნილი → გაყიდულია თქვენზე`,
+    b2: (n) => `${n} ელ. ბილეთის გაცემა`, b3: "გაიგზავნა ელ. ფოსტაზე და Apple Wallet-ში",
+    b3d: (n) => `${n} PDF ბილეთი tkt.ge ანგარიშის ელ. ფოსტაზე · ${n} Wallet ბარათი · SMS ჯავშნის კოდით`,
+    b4: (cin) => cin ? "მზადაა — დარბაზის შესასვლელთან აჩვენეთ QR კოდი" : "მზადაა — შესასვლელთან აჩვენეთ QR კოდი", b4d: (h, time) => `${h} · შესვლა იწყება ${time}-მდე 20 წუთით ადრე`,
+    confirming: "ვადასტურებთ სალაროსთან…", soldTo: (what) => `${what} — გაყიდულია თქვენზე`, soldShort: "გაყიდულია თქვენზე",
+    mailSent: "✉ ელ. ფოსტა გაიგზავნა", smsSent: "💬 SMS გაიგზავნა",
+    going: "ბილეთები მზადაა!", etCount: (n, a, card) => `${n} ელ. ბილეთი · გადახდილია ${a} · ${card}`, of: (a, b) => `${a} / ${b}`,
+    viewSeats: "🪑 თქვენი ადგილები დარბაზის სქემაზე", wallet: "Apple Wallet-ში დამატება", byAI: "✦ tkt.ge AI-მ იპოვა და დაჯავშნა ერთი შეტყობინებით · გადახდა თქვენ დაადასტურეთ Face ID-ით",
+    order: "შეკვეთა", paid: "გადახდილია", zone: "ზონა",
+  },
+};
+const t = () => L[LANG];
+const ka = () => LANG === "ka";
+const DOW_KA = { Mon: "ორშ", Tue: "სამ", Wed: "ოთხ", Thu: "ხუთ", Fri: "პარ", Sat: "შაბ", Sun: "კვი" };
+const MON_KA = ["იან", "თებ", "მარ", "აპრ", "მაი", "ივნ", "ივლ", "აგვ", "სექ", "ოქტ", "ნოე", "დეკ"];
+const etitle = (e) => (ka() && e.titleKa) || e.title;
+const zname = (it) => (ka() && it.meta.zoneKa) || it.meta.zone;
+const hname = (it) => (ka() && it.meta.hallKa) || it.meta.hall.name;
+const vnm = (v) => (ka() && v.ka?.name) || v.name;
+const locShort = () => (ka() && S.data.location.labelKa ? S.data.location.labelKa : S.data.location.label).split(",")[0];
+const lopts = (l) => (ka() && l.optionsKa) || l.options;
+function znote(it) {
+  const m = it.meta;
+  if (!ka()) return m.note;
+  if (m.hall) return `${hname(it)} · რიგები ${m.rows[0]}–${m.rows[1]}${m.side ? " · გვერდითი ბლოკები" : m.seats[0] > 1 ? ` · ადგილები ${m.seats[0]}–${m.seats[1]}` : ""}`;
+  return m.note.split(" · ")[0].replace(/Sectors?/, "სექტორები").replace(/Rows?/, "რიგები").replace(/Tiers?/, "იარუსი").replace(/Boxes/, "ლოჟები").replace(/tier/, "იარუსი");
+}
+function setLang(l) {
+  LANG = l; localStorage.setItem("agentpay_lang", l); AgentPayUI.lang = l;
+  if (S.chatOpen) { const keep = [...$("#msgs").children].filter((e) => !e.classList.contains("welcome")); closeChat(); chatLog = keep; openChat(); }
+}
+
+// ======================= state =======================
+const USER_ID = "user_123";
+const S = {
+  data: null, events: [], screen: "home", tab: "Home", eventId: null, filter: null,
+  cart: { venueId: null, lines: [] },   // lines: { itemId, qty, optionIds }
+  agentPayment: null, cartSignature: null, booking: null, // cart came from the agent and is unchanged → reuse that payment
+  order: null, myTickets: [], chatOpen: false, busy: false,
+};
+let agent;
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const money = (n) => "₾" + Number(n).toFixed(2);
+const money0 = (n) => "₾" + (Number.isInteger(+n) ? n : Number(n).toFixed(2));
+const venue = (id) => S.data.venues.find((v) => v.id === id);
+const item = (id) => S.data.catalog.find((i) => i.id === id);
+const ev = (id) => S.events.find((e) => e.id === id);
+const km = (a, b) => { const R = 6371, r = Math.PI / 180, dLa = (b.lat - a.lat) * r, dLn = (b.lng - a.lng) * r;
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLn / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+const dist = (v) => { const d = km(S.data.location, v), u = ka() ? " კმ" : " km"; return d < 10 ? d.toFixed(1) + u : Math.round(d) + u; };
+const poster = (url, w = 400, h = 500) => url.replace(/w=\d+&h=\d+/, `w=${w}&h=${h}`);
+const mon = (d) => new Date(d + "T12:00").toLocaleString("en", { month: "short" });
+const dayn = (d) => +d.slice(8);
+const when = (e) => ka() ? `${e.date === TODAY ? "დღეს" : DOW_KA[e.dow]}, ${dayn(e.date)} ${MON_KA[+e.date.slice(5, 7) - 1]} · ${e.time}`
+  : `${e.date === TODAY ? "Today" : e.dow}, ${dayn(e.date)} ${mon(e.date)} · ${e.time}`;
+const unitPrice = (l) => { const it = item(l.itemId); return it.price + (l.optionIds || []).reduce((s, o) => s + it.options.find((x) => x.id === o).price, 0); };
+const linePrice = (l) => unitPrice(l) * l.qty;
+const cartCount = () => S.cart.lines.reduce((s, l) => s + l.qty, 0);
+const cartSubtotal = () => S.cart.lines.reduce((s, l) => s + linePrice(l), 0);
+const sig = () => JSON.stringify(S.cart);
+const CAT_EMOJI = { Sport: "⚽", Opera: "🎻", Theatre: "🎭", Concert: "🎵", Festival: "🎪", "Stand-up": "🎤", Music: "🎧", Cinema: "🎬" };
+const TODAY = "2026-10-18";
+const HERO = "c_odyssey_citymall_1018_2200";
+
+// ======================= cinema seats =======================
+// Pre-sold seats are deterministic per session; the app (tkt.ge's own seating engine) assigns the best adjacent
+// block inside the zone the agent picked, so the order card, seat map and e-tickets always show the same seats.
+const hash = (str) => { let h = 2166136261; for (const c of str) h = Math.imul(h ^ c.charCodeAt(0), 16777619); h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return h >>> 0; };
+const isTaken = (sid, r, s) => hash(`${sid}:${r}:${s}`) % 100 < (r >= 10 ? 45 : r >= 5 ? 38 : 15);
+function pickSeats(it, qty, used) {
+  const m = it.meta, [r0, r1] = m.rows, [s0, s1] = m.seats, mid = (m.hall.seats + 1) / 2, rmid = (r0 + r1) / 2;
+  const free = (r, x) => !isTaken(m.eventId, r, x) && !used.has(`${r}-${x}`);
+  const okZone = (x) => !m.side || x < 5 || x > 10;
+  let best = null;
+  for (let r = r0; r <= r1; r++) for (let x = s0; x + qty - 1 <= s1; x++) {
+    const blk = Array.from({ length: qty }, (_, k) => x + k);
+    if (!blk.every((y) => okZone(y) && free(r, y))) continue;
+    const score = Math.abs(r - rmid) * 1.2 + Math.abs(x + (qty - 1) / 2 - mid);
+    if (!best || score < best.score) best = { score, seats: blk.map((y) => ({ r, s: y })) };
+  }
+  if (best) return best.seats;
+  const any = []; // no adjacent block: best single seats in the zone
+  for (let r = r0; r <= r1 && any.length < qty; r++) for (let x = s0; x <= s1 && any.length < qty; x++) if (okZone(x) && free(r, x)) any.push({ r, s: x });
+  return any;
+}
+const seatCache = {};
+function seatsFor(p) {
+  if (seatCache[p.id]) return seatCache[p.id];
+  const used = new Set();
+  return (seatCache[p.id] = p.lines.map((l) => {
+    const it = item(l.itemId);
+    if (!it.meta.hall) return null;
+    const seats = pickSeats(it, l.qty, used);
+    seats.forEach((x) => used.add(`${x.r}-${x.s}`));
+    return seats;
+  }));
+}
+const seatText = (seats) => { const rows = [...new Set(seats.map((x) => x.r))];
+  return rows.map((r) => `${t().row} ${r} · ${seats.filter((x) => x.r === r).length > 1 ? t().seats : t().seatOne} ${seats.filter((x) => x.r === r).map((x) => x.s).join(", ")}`).join("; "); };
+function seatMapHtml(it, mine = [], live = false) {
+  const m = it.meta, H = m.hall, mineSet = new Set(mine.map((x) => `${x.r}-${x.s}`));
+  const inZone = (r, x) => r >= m.rows[0] && r <= m.rows[1] && x >= m.seats[0] && x <= m.seats[1] && (!m.side || x < 5 || x > 10);
+  let rows = "";
+  for (let r = 1; r <= H.rows; r++) {
+    let cells = "";
+    for (let x = 1; x <= H.seats; x++) {
+      const k = `${r}-${x}`, cls = mineSet.has(k) ? "mine" : isTaken(m.eventId, r, x) ? "taken" : inZone(r, x) ? "zone" : "";
+      cells += `<span class="seat ${cls}" data-k="${k}">${mineSet.has(k) ? x : ""}</span>` + (x === 4 || x === 10 ? '<span class="gap"></span>' : "");
+    }
+    rows += `<div class="srow"><span class="rl">${r}</span>${cells}<span class="rl">${r}</span></div>`;
+  }
+  return `<div class="seatmap"><div class="screenarc">${t().screen}</div>${rows}</div>
+    <div class="legend"><span><i class="seat"></i>${t().free}</span><span><i class="seat zone"></i>${esc(zname(it).replace(/,.*/, ""))}${m.seats[0] > 1 ? t().central : m.side ? t().sides : ""}</span><span><i class="seat taken"></i>${t().sold}</span>${live ? `<span><i class="seat" style="background:#FFB020"></i>${t().held}</span>` : ""}${mine.length || live ? `<span><i class="seat mine"></i>${t().yours}</span>` : ""}</div>`;
+}
+function openSeatMap(itemId, mine = []) {
+  const it = item(itemId), e = ev(it.meta.eventId), v = venue(e.venueId);
+  const sc = document.createElement("div");
+  sc.className = "scrim";
+  sc.innerHTML = `<div class="sheet" onclick="event.stopPropagation()"><div class="grab"></div>
+    <div class="shead"><div><b>${esc(etitle(e))} · ${esc(hname(it))}</b><small>${when(e)} · ${esc(vnm(v))}</small></div><button onclick="this.closest('.scrim').remove()">${I.close}</button></div>
+    ${seatMapHtml(it, mine)}
+    ${mine.length ? `<div style="text-align:center;font-weight:800;font-size:15px;padding:8px 16px 0">${esc(seatText(mine))}</div><div style="text-align:center;color:var(--muted);font-size:12.5px;padding:2px 24px 0">${esc(t().adjIn(zname(it).toLowerCase().replace(/,.*/, "")))}</div>` : ""}
+  </div>`;
+  sc.onclick = () => sc.remove();
+  $("#screen").appendChild(sc);
+}
+
+// ======================= icons =======================
+const LOGO = '<svg viewBox="0 0 131 32" fill="none"><path d="M74.2552 0.813446H0V9.72906C3.47065 9.72906 6.27626 12.5347 6.27626 16.0053C6.27626 19.476 3.47065 22.2816 0 22.2816V31.218H74.2552" fill="#009DF6"/><path d="M74.2554 31.218H130.721V22.2816C127.25 22.2816 124.445 19.476 124.445 16.0053C124.445 12.5347 127.25 9.72906 130.721 9.72906V0.813446H74.2554" fill="#FF005F"/><path d="M22.0084 27.2693H15.9192V10.1655H12.5732V4.76208H25.4791V10.1655H21.9876V27.2693H22.0084Z" fill="white"/><path d="M45.3884 27.2693H38.8212L34.7894 16.899L34.9556 27.2693H28.8872V4.76208H34.9556L34.7894 14.4051L38.3847 4.76208H44.8065L39.9434 15.6312L45.3884 27.2693Z" fill="white"/><path d="M58.0865 27.2693H51.9973V10.1655H48.6514V4.76208H61.5572V10.1655H58.0658V27.2693H58.0865Z" fill="white"/><path d="M95.1412 14.2596H103.62V15.1948C103.62 19.5383 102.976 22.6556 101.688 24.5468C100.274 26.6251 98.1962 27.6642 95.4321 27.6642C92.7096 27.6642 90.5898 26.6458 89.052 24.6092C87.5141 22.5517 86.7451 19.7253 86.7451 16.13C86.7451 12.4931 87.5141 9.60433 89.0727 7.50532C90.6106 5.4063 92.7304 4.34641 95.4113 4.34641C98.9651 4.34641 101.542 6.19603 103.142 9.91607L97.261 12.0774C97.1778 11.3708 96.97 10.8097 96.6583 10.3941C96.3465 9.97841 95.9517 9.77059 95.4737 9.77059C93.8111 9.77059 92.959 12.0774 92.959 16.6703C92.959 18.6239 93.1461 20.0371 93.5202 20.9307C93.8942 21.8243 94.4761 22.2608 95.2867 22.2608C95.5984 22.2608 95.8893 22.1776 96.1595 22.0322C96.4297 21.8867 96.6375 21.6581 96.8246 21.3671C97.0116 21.0762 97.1363 20.7437 97.2402 20.3488C97.3441 19.9539 97.3857 19.4967 97.3857 18.9979H95.1412V14.2596Z" fill="white"/><path d="M106.863 27.2693V4.76208H118.147V10.0616H112.931V13.3452H117.628V18.4369H112.952V21.8867H118.168V27.2901H106.863V27.2693Z" fill="white"/><path d="M74.2555 22.2817C77.7218 22.2817 80.5318 19.4717 80.5318 16.0054C80.5318 12.5391 77.7218 9.72916 74.2555 9.72916C70.7892 9.72916 67.9792 12.5391 67.9792 16.0054C67.9792 19.4717 70.7892 22.2817 74.2555 22.2817Z" fill="white"/></svg>';
+const I = {
+  pin: '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>',
+  back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  close: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  heart: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 21s-8-5.3-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.7-8 11-8 11Z"/></svg>',
+  share: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v13M7 8l5-5 5 5M5 14v6h14v-6"/></svg>',
+  search: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  send: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>',
+  mic: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  fire: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2s5 4.5 5 10a5 5 0 0 1-10 0c0-2.2 1-3.7 1-3.7S9 11 11 11c0-4 1-9 1-9Zm0 20a7 7 0 0 1-7-7c0-1 .2-2 .6-2.9C4.4 13 4 14 4 15a8 8 0 0 0 16 0c0-5-4-9-4-9s.9 2.2.9 4.6A5 5 0 0 1 12 22Z"/></svg>',
+  ticket: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a3 3 0 0 0 0 6v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a3 3 0 0 0 0-6Z"/><path d="M14 5v14" stroke-dasharray="2 2.5"/></svg>',
+  cal: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  mail: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg>',
+  face: '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"><path d="M4 18V10a6 6 0 0 1 6-6h8M46 4h8a6 6 0 0 1 6 6v8M60 46v8a6 6 0 0 1-6 6h-8M18 60h-8a6 6 0 0 1-6-6v-8"/><path d="M22 24v5M42 24v5M32 24v12h-3M24 44c4.5 4 11.5 4 16 0"/></svg>',
+  check: '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26" stroke-width="3.5"/><path d="M20 33l8 8 16-17"/></svg>',
+  okc: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  apple: '<svg width="16" height="18" viewBox="0 0 17 20" fill="#fff"><path d="M14.1 10.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4.1ZM11.6 3c.7-.9 1.2-2 1-3.2-1 0-2.3.7-3 1.6-.7.8-1.2 2-1.1 3.1 1.2.1 2.3-.6 3.1-1.5Z"/></svg>',
+  nav: {
+    Home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1Z"/></svg>',
+    Categories: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>',
+    "My tickets": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a3 3 0 0 0 0 6v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a3 3 0 0 0 0-6Z"/><path d="M14 5v14" stroke-dasharray="2 2.5"/></svg>',
+    Profile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  },
+};
+
+// ======================= render: shell =======================
+function render() {
+  const v = $("#view");
+  if (S.screen === "home") v.innerHTML = S.tab === "My tickets" ? myTicketsView() : homeView();
+  if (S.screen === "event") v.innerHTML = eventView();
+  if (S.screen === "checkout") v.innerHTML = checkoutView();
+  if (S.screen === "tickets") v.innerHTML = ticketsView();
+  if (S.screen === "booking") v.innerHTML = bookingView();
+  $("#nav").style.display = S.screen === "home" ? "" : "none";
+  renderNav();
+  $("#statusbar").classList.toggle("dark", S.screen === "tickets");
+  $("#fab").classList.toggle("hide", S.screen !== "home");
+  $("#fab").style.bottom = S.screen === "home" ? "96px" : "104px";
+  renderBuyBar();
+}
+function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render(); $("#view").scrollTop = 0; }
+
+function renderNav() {
+  $("#nav").innerHTML = Object.entries(I.nav).map(([k, svg]) => `<button class="${S.tab === k ? "on" : ""}" data-tab="${k}">${svg}${k}${k === "My tickets" && S.myTickets.length ? `<span class="badge">${S.myTickets.reduce((s, p) => s + p.lines.reduce((a, l) => a + l.qty, 0), 0)}</span>` : ""}</button>`).join("");
+  $("#nav").querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => { if (b.dataset.tab === "Profile") return; go("home", { tab: b.dataset.tab === "Categories" ? "Home" : b.dataset.tab }); });
+}
+
+// ======================= home =======================
+function eventCard(e) {
+  const from = Math.min(...e.items.map((i) => i.price));
+  return `<button class="ecard" onclick="openEvent('${e.id}')">
+    <div class="poster"><img src="${poster(e.poster)}" alt="" loading="lazy">
+      <div class="datebadge"><b>${dayn(e.date)}</b><span>${mon(e.date)}</span></div>
+      <div class="ttl">${esc(e.title)}<small>${esc(venue(e.venueId).name)}</small></div></div>
+    <div class="ename">${esc(e.title)}</div>
+    <div class="esub">${e.dow} ${e.time} · ${esc(venue(e.venueId).name)}</div>
+    <div class="eprice"><span>from</span> ${money0(from)}</div>
+  </button>`;
+}
+function homeView() {
+  const cats = [["🎵", "Concerts", "Concert"], ["🎭", "Theatre", "Theatre"], ["⚽", "Sport", "Sport"], ["🎻", "Opera", "Opera"], ["🎤", "Stand-up", "Stand-up"], ["🎪", "Festival", "Festival"], ["🎧", "Club", "Music"],
+    ["🎬", "Cinema", "Cinema"], ["🚆", "Railway"], ["🌊", "Sea"], ["🎈", "Kids"], ["🏛️", "Museum"], ["✈️", "Fly"]];
+  const half = Math.ceil(cats.length / 2);
+  const chip = ([e, n, k]) => `<button class="catp ${S.filter && S.filter === k ? "on" : ""}" ${k ? `onclick="setFilter('${k}')"` : ""}><span class="e">${e}</span>${n}</button>`;
+  const feat = ev(HERO);
+  const popular = [HERO, "e_dinamo_torpedo", "e_traviata", "e_bsa_finale", "e_standup", "e_georgia_greece"].map(ev).filter(Boolean);
+  const list = S.events.filter((e) => S.filter ? e.kind === S.filter : e.kind !== "Cinema").sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  const films = [...new Set(S.events.filter((e) => e.kind === "Cinema").map((e) => e.film))].map((f) => {
+    const ss = S.events.filter((e) => e.film === f).sort((a, b) => km(S.data.location, venue(a.venueId)) - km(S.data.location, venue(b.venueId)) || (a.date + a.time).localeCompare(b.date + b.time));
+    return { first: ss.find((e) => e.id === HERO) || ss[0], n: ss.filter((e) => e.date === TODAY).length };
+  });
+  const filmCard = ({ first: e, n }) => `<button class="ecard" style="width:160px" onclick="openEvent('${e.id}')">
+    <div class="poster"><img src="${poster(e.poster)}" alt="" loading="lazy"><div class="ttl" style="font-size:14px">${esc(e.title)}<small>${esc(e.sub.split(" · ")[0])}</small></div></div>
+    <div class="ename">${esc(e.title)}</div><div class="esub">${n} sessions today · Cavea</div><div class="eprice"><span>from</span> ${money0(Math.min(...e.items.map((i) => i.price)))}</div></button>`;
+  const stories = [["v_cavea_citymall", "Cavea"], ["v_dinamo", "Dinamo Arena"], ["v_opera", "Opera"], ["v_bassiani", "Bassiani"], ["v_bsa", "Black Sea Arena"], ["v_rustaveli", "Rustaveli"], ["v_concert_hall", "Concert Hall"]];
+  return `
+  <div class="card">
+    <div class="topbar"><span class="logo">${LOGO}</span><span class="loc">${I.pin}<span>${esc(S.data.location.label)}</span></span><span class="lang">ENG</span></div>
+    <button class="search" onclick="openChat()">${I.search} Search events, venues…<span class="ai">✦ AI</span></button>
+    <div class="catrows"><div class="catrow">${cats.slice(0, half).map(chip).join("")}</div><div class="catrow">${cats.slice(half).map(chip).join("")}</div></div>
+  </div>
+  <div class="panel" style="padding-top:2px">
+    <button class="banner" onclick="openEvent('${feat.id}')"><img src="${poster(feat.poster, 800, 400)}" alt="">
+      <div class="ov"><span class="k">Now showing · Cavea</span><h3>The Odyssey<em>A film by Christopher Nolan</em></h3><span class="d">TODAY 16:30 · 19:15 · 22:00 · CITY MALL SABURTALO</span></div></button>
+    <div class="dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+  </div>
+  <div class="panel">
+    <button class="aistrip" onclick="openChat()"><span class="ic">✦</span><span><b>Buy tickets by just asking</b><small>“3 tickets for The Odyssey tonight at 22:00, central seats in the last rows” — the AI picks the session and seats, you confirm with Face ID.</small></span></button>
+    <div class="stories" style="margin-top:16px">${stories.map(([id, n]) => `<button class="story" onclick="setFilterVenue('${id}')"><span class="ring"><img src="${poster(venue(id).image, 160, 160)}" alt=""></span><span>${n}</span></button>`).join("")}</div>
+  </div>
+  <div class="panel">
+    <div class="sec"><span style="font-size:18px">🎬</span><h2>In cinemas · Cavea</h2><a onclick="setFilter('Cinema')">Sessions</a></div>
+    <div class="carousel">${films.map(filmCard).join("")}</div>
+  </div>
+  <div class="panel">
+    <div class="sec"><span class="fire">${I.fire}</span><h2>Popular</h2><a>See all</a></div>
+    <div class="carousel">${popular.map(eventCard).join("")}</div>
+  </div>
+  <div class="panel" style="padding-bottom:0">
+    <div class="sec"><h2>${S.filter ? esc(S.filter === "Music" ? "Club" : S.filter) : "All events"}</h2>${S.filter ? `<a onclick="setFilter(null)">Clear</a>` : `<a>${S.events.length} events</a>`}</div>
+    <div class="grid">${list.map(eventCard).join("")}</div>
+  </div>`;
+}
+function setFilter(k) { S.filter = S.filter === k ? null : k; render(); }
+function setFilterVenue(vid) { const e = S.events.filter((e) => e.venueId === vid).sort((a, b) => a.date.localeCompare(b.date))[0]; if (e) openEvent(e.id); }
+
+function myTicketsView() {
+  return `<div class="pagehead"><h1>My tickets</h1></div>` + (S.myTickets.length ? `<div class="mylist">${S.myTickets.slice().reverse().map((p, i) => {
+    const e = ev(item(p.lines[0].itemId).meta.eventId);
+    return `<button class="myt" onclick="showTickets(${S.myTickets.length - 1 - i})"><img src="${poster(e.poster, 160, 200)}" alt=""><div><b>${esc(e.title)}</b><small>${when(e)}</small><small>${esc(venue(e.venueId).name)}</small></div><span class="n">${p.lines.reduce((s, l) => s + l.qty, 0)} ×</span></button>`; }).join("")}</div>`
+    : `<div class="empty"><div>🎟️</div>No tickets yet.<br>Buy some — or just ask the AI.</div>`);
+}
+function showTickets(i) { S.order = { p: S.myTickets[i], viaAgent: S.myTickets[i].viaAgent }; go("tickets"); }
+
+// ======================= event =======================
+function openEvent(id) {
+  if (S.cart.lines.length && item(S.cart.lines[0].itemId).meta.eventId !== id) { /* keep cart of other event until user adds here */ }
+  go("event", { eventId: id });
+}
+function mapSvg(v) {
+  const far = km(S.data.location, v) > 30;
+  return `<svg viewBox="0 0 360 140" preserveAspectRatio="xMidYMid slice">
+    <rect width="360" height="140" fill="#EEF0F3"/>
+    <g fill="#DDEFD9"><rect x="18" y="14" width="64" height="40" rx="8"/><rect x="250" y="88" width="80" height="38" rx="8"/></g>
+    <path d="M-10 118 C 60 96, 110 128, 170 100 S 280 40, 370 58" stroke="#B9DDF7" stroke-width="16" fill="none"/>
+    <g stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"><path d="M-10 40 L370 26"/><path d="M110 -10 L140 150"/><path d="M230 -10 L210 150"/><path d="M-10 80 L370 92"/></g>
+    <path d="M70 92 C 130 70, 200 64, 268 44" stroke="#0F78FF" stroke-width="3" fill="none" stroke-dasharray="2 7" stroke-linecap="round"/>
+    <circle cx="70" cy="92" r="9" fill="#0F78FF" opacity=".2"/><circle cx="70" cy="92" r="5" fill="#0F78FF" stroke="#fff" stroke-width="2"/>
+    <path d="M268 50 c-9-10-13-16-13-22a13 13 0 0 1 26 0c0 6-4 12-13 22Z" transform="translate(0,-4)" fill="#FF005F"/><circle cx="268" cy="24" r="4.5" fill="#fff"/>
+    ${far ? `<text x="180" y="132" text-anchor="middle" font-size="11" font-weight="700" fill="#6F7383" font-family="Inter">${esc(S.data.location.label)} → ${esc(v.area)}</text>` : ""}
+  </svg>`;
+}
+function eventView() {
+  const e = ev(S.eventId), v = venue(e.venueId);
+  const inCart = (id) => S.cart.lines.filter((l) => l.itemId === id).reduce((s, l) => s + l.qty, 0);
+  return `
+  <div class="ehero"><img src="${poster(e.poster, 800, 620)}" alt="">
+    <div class="btns"><button class="circle" onclick="go('home')">${I.back}</button><span style="display:flex;gap:8px"><span class="circle">${I.heart}</span><span class="circle">${I.share}</span></span></div></div>
+  <div class="ebody" style="padding-bottom:120px">
+    <span class="kchip">${CAT_EMOJI[e.kind] || "🎟️"} ${esc(e.kind === "Music" ? "Club" : e.kind)}</span>
+    <h1>${esc(e.title)}</h1>
+    <div class="sub">${esc(e.sub)}</div>
+    <div class="info" style="margin-top:8px"><span class="ic cal"><span><small>${mon(e.date)}</small><b>${dayn(e.date)}</b></span></span><div><b>${when(e)}</b><small>${e.kind === "Cinema" ? `${esc(e.items[0].meta.hall.name)} · ${e.items[0].meta.mins} min` : `Doors open ${e.kind === "Sport" ? "90" : "60"} min before`}</small></div></div>
+    <div class="info" style="border:0"><span class="ic">${I.pin}</span><div><b>${esc(v.meta?.fullName || v.name)}</b><small>${esc(v.meta?.address || v.area)}</small></div></div>
+    <div class="mapbox">${mapSvg(v)}<div class="cap">${I.pin}<span>${dist(v)} from ${esc(S.data.location.label.split(",")[0])}</span><a>Directions</a></div></div>
+    <div class="about">${esc(e.about)}</div>
+    ${e.kind === "Cinema" ? sessionsHtml(e) : ""}
+    <div class="h3" style="display:flex;align-items:center">Tickets${e.kind === "Cinema" ? `<button class="linkbtn" style="margin-left:auto" onclick="openSeatMap('${e.items[e.items.length - 1].id}')">🪑 Seat map</button>` : ""}</div>
+    ${e.kind === "Cinema" ? `<div style="color:var(--muted);font-size:12.5px;margin:-4px 0 10px">Pick a zone — the best adjacent seats in it are assigned automatically.</div>` : ""}
+    ${e.items.map((i) => { const q = inCart(i.id); return `<div class="tcat ${q ? "on" : ""}">
+      <div class="t"><b>${esc(i.meta.zone)}</b><small>${esc(i.meta.note)}</small>${i.meta.hall ? "" : `<div class="left">${i.meta.left < 50 ? `Only ${i.meta.left} left` : `${i.meta.left} available`}</div>`}</div>
+      <div><div class="pr">${money0(i.price)}</div><div class="qty"><button onclick="bump('${i.id}',-1)">−</button><span>${q}</span><button class="plus" onclick="bump('${i.id}',1)">+</button></div></div></div>`; }).join("")}
+  </div>`;
+}
+function sessionsHtml(cur) {
+  const ss = S.events.filter((e) => e.film === cur.film);
+  const vids = [...new Set(ss.map((e) => e.venueId))].sort((a, b) => km(S.data.location, venue(a)) - km(S.data.location, venue(b)));
+  return `<div class="h3">Sessions</div>` + vids.map((vid) => `<div class="sess"><div class="vn">${esc(venue(vid).name)}<small>${dist(venue(vid))}</small></div><div class="times">${
+    ss.filter((e) => e.venueId === vid).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)).map((e) => `<button class="tchip ${e.id === cur.id ? "on" : ""}" onclick="go('event',{eventId:'${e.id}'})">${e.time}<small>${e.date === TODAY ? "Today" : `${e.dow} ${dayn(e.date)}`}</small></button>`).join("")}</div></div>`).join("");
+}
+function bump(itemId, d) {
+  const it = item(itemId);
+  if (S.cart.venueId && S.cart.lines.length && item(S.cart.lines[0].itemId).meta.eventId !== it.meta.eventId) S.cart = { venueId: null, lines: [] };
+  S.cart.venueId = it.venueId;
+  let l = S.cart.lines.find((l) => l.itemId === itemId);
+  if (!l && d > 0) S.cart.lines.push(l = { itemId, qty: 0, optionIds: [] });
+  if (l) { l.qty = Math.max(0, Math.min(10, l.qty + d)); if (!l.qty) S.cart.lines = S.cart.lines.filter((x) => x !== l); }
+  if (!S.cart.lines.length) S.cart.venueId = null;
+  const top = $("#view").scrollTop; render(); $("#view").scrollTop = top;
+}
+function renderBuyBar() {
+  document.querySelectorAll(".buybar").forEach((e) => e.remove());
+  if (S.screen !== "event") return;
+  const n = S.cart.lines.length && item(S.cart.lines[0].itemId).meta.eventId === S.eventId ? cartCount() : 0;
+  const bar = document.createElement("div");
+  bar.className = "buybar";
+  bar.innerHTML = `<div class="s">${n ? `${n} ticket${n > 1 ? "s" : ""}` : "Select tickets"}<b>${money(n ? cartSubtotal() : 0)}</b></div><button class="btn" ${n ? "" : "disabled"} onclick="go('checkout')">Continue</button>`;
+  $("#screen").appendChild(bar);
+}
+
+// ======================= checkout =======================
+function checkoutView() {
+  if (!S.cart.lines.length) return `<div class="pagehead"><button onclick="go('home')">${I.back}</button><h1>Checkout</h1></div><p style="padding:16px">No tickets selected.</p>`;
+  const e = ev(item(S.cart.lines[0].itemId).meta.eventId), v = venue(e.venueId);
+  const sub = cartSubtotal(), total = sub + v.deliveryFee + S.data.serviceFee;
+  const extras = e.items[0].options || [];
+  const has = (oid) => S.cart.lines.every((l) => l.optionIds.includes(oid));
+  const tix = cartCount();
+  return `
+  <div class="pagehead"><button onclick="go('event',{eventId:'${e.id}'})">${I.back}</button><div><h1>Checkout</h1><div class="vsub">Step 2 of 2 · Payment</div></div></div>
+  <div class="steps3"><i class="on"></i><i class="on"></i></div>
+  <div class="block"><div class="mini"><img src="${poster(e.poster, 160, 200)}" alt=""><div><b>${esc(e.title)}</b><small>${when(e)}</small><small>${esc(v.name)} · ${esc(v.area)}</small></div></div></div>
+  <div class="block"><h3>Tickets</h3>
+    ${S.cart.lines.map((l) => { const it = item(l.itemId); return `<div class="line"><span class="q">${l.qty}×</span>
+      <div class="nm">${esc(it.meta.zone)}<div class="mods">${esc(it.meta.note)}${l.optionIds.length ? " · " + l.optionIds.map((o) => esc(it.options.find((x) => x.id === o).name)).join(", ") : ""}</div></div><span class="pr">${money(linePrice(l))}</span></div>`; }).join("")}
+  </div>
+  <div class="block"><h3>Extras</h3>
+    ${extras.map((o) => `<button class="opt ${has(o.id) ? "on" : ""}" onclick="toggleExtra('${o.id}')"><div>${esc(o.name)}<small>+${money(o.price)} per ticket · ${tix} × ${money(o.price)}</small></div><span class="sw"></span></button>`).join("")}
+  </div>
+  <div class="block"><h3>E-ticket delivery</h3>
+    <div class="row"><span class="info" style="padding:0;border:0"><span class="ic" style="width:36px;height:36px">${I.ticket}</span></span><div>tkt.ge app · My tickets<small>QR codes are also sent by e-mail and SMS</small></div><span class="chev">›</span></div>
+  </div>
+  <div class="block"><h3>Payment method</h3>
+    <div class="row"><span class="mc"></span><div>${esc(S.data.paymentMethod)}<small>Saved card · Apple Pay available</small></div><span class="chev">›</span></div>
+  </div>
+  <div class="block"><h3>Summary</h3>
+    <div class="sum"><span>Tickets (${tix})</span><span>${money(sub)}</span></div>
+    <div class="sum"><span>Service fee</span><span>${money(S.data.serviceFee)}</span></div>
+    <div class="sum total"><span>Total</span><span>${money(total)}</span></div>
+  </div>
+  <div style="padding:6px 12px 10px"><button class="btn" id="cobtn" onclick="checkoutPay()">Pay ${money(total)}</button></div>
+  <div class="terms">By paying you agree to tkt.ge terms of sale. Tickets are non-refundable unless the event is cancelled${has("insurance") ? " — covered by Ticket insurance" : ""}.</div>
+  <div style="height:24px"></div>`;
+}
+function toggleExtra(oid) {
+  const on = !S.cart.lines.every((l) => l.optionIds.includes(oid));
+  S.cart.lines.forEach((l) => { l.optionIds = l.optionIds.filter((x) => x !== oid); if (on && item(l.itemId).options.some((o) => o.id === oid)) l.optionIds.push(oid); });
+  const top = $("#view").scrollTop; render(); $("#view").scrollTop = top;
+}
+async function checkoutPay() {
+  $("#cobtn").disabled = true;
+  let intent = S.agentPayment && S.cartSignature === sig() ? S.agentPayment : null;
+  if (!intent) {
+    const r = await agent.createOrder(S.cart.lines.map((l) => ({ item_id: l.itemId, qty: l.qty, option_ids: l.optionIds })));
+    if (r.error) { toast(r.error); $("#cobtn").disabled = false; return; }
+    intent = r;
+  }
+  startBooking(intent, !!(S.agentPayment && intent.id === S.agentPayment.id));
+}
+
+// ======================= payment: the real card-payment path, visualised =======================
+async function payWithFaceId(intent) {
+  const r = await AgentPayUI.pay({ root: $("#screen"), agent, payment: intent, accent: "#0F78FF", merchant: "tkt.ge" });
+  refreshHood();
+  return r;
+}
+
+// ======================= booking: hold seats → pay → confirm in the venue system → issue e-tickets =======================
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let holdTimer, bookRun;
+function bookingView() {
+  const { p } = S.booking, it0 = item(p.lines[0].itemId), e = ev(it0.meta.eventId), v = venue(e.venueId), cinema = !!it0.meta.hall;
+  return `
+  <div class="pagehead"><div><h1>${cinema ? t().bookSeats : t().bookTix}</h1><div class="vsub">${esc(etitle(e))} · ${when(e)} · ${esc(vnm(v))}</div></div></div>
+  <div class="block">
+    <div class="holdbar" id="holdbar"><span id="holdlbl">${esc(t().connecting(vnm(v)))}</span><b id="holdt"></b></div>
+    ${cinema ? `<div id="bmap">${seatMapHtml(it0, [], true)}</div>`
+      : `<div class="mini" style="margin-top:8px"><img src="${poster(e.poster, 160, 200)}" alt=""><div><b>${esc(etitle(e))}</b><small>${p.lines.map((l) => `${l.qty}× ${esc(zname(item(l.itemId)))}`).join(" · ")}</small><small>${esc(v.meta?.fullName || v.name)}</small></div></div>`}
+  </div>
+  <div class="block"><h3>${t().live}</h3><div id="bstA"></div><div id="bstB"></div></div>
+  <div class="block" id="bissued" style="display:none"><h3>${t().yourEt}</h3><div class="issued" id="bmini"></div><div id="bsent"></div></div>
+  <div style="height:20px"></div>`;
+}
+function ticketCode(p, n, e) { return `TKT-${p.id.split("_").pop().padStart(4, "0")}-${String(n + 1).padStart(2, "0")}${(dayn(e.date) * 37 + n * 11) % 97}`; }
+async function startBooking(p, viaAgent, card) {
+  closeChat();
+  clearInterval(holdTimer); bookRun?.cancel();
+  S.booking = { p, viaAgent };
+  go("booking");
+  const it0 = item(p.lines[0].itemId), e = ev(it0.meta.eventId), v = venue(e.venueId), cinema = !!it0.meta.hall;
+  const seats = seatsFor(p).flat().filter(Boolean), n = p.lines.reduce((s, l) => s + l.qty, 0);
+  const what = cinema ? seatText(seats) : p.lines.map((l) => `${l.qty}× ${zname(item(l.itemId))}`).join(", ");
+  const T = t(), VN = vnm(v);
+  const seatEl = (x) => $(`#bmap [data-k="${x.r}-${x.s}"]`);
+  const lbl = (t, cls, timer = "") => { const hb = $("#holdbar"); if (!hb) return; hb.className = "holdbar " + (cls || ""); $("#holdlbl").textContent = t; $("#holdt").textContent = timer; };
+
+  // ---- phase A: availability + hold (before any money moves)
+  await new Promise((done) => { bookRun = AgentPayUI.stages($("#bstA"), [
+    { title: T.a0(cinema, VN), detail: `${VN} · ${cinema ? `${hname(it0)} · ` : ""}${p.lines.map((l) => zname(item(l.itemId))).join(", ")}`, ms: 1700 },
+    { title: T.a1(cinema, what, n), detail: T.a1d(`${p.id.replace("pi_tktge_", "H-")}${"00" + n}`), ms: 1700 },
+  ], { accent: "#0F78FF", onDone: done, onStage: (i) => {
+    if (i === 0) { lbl(cinema ? T.scanning(zname(it0).toLowerCase()) : T.checking); document.querySelectorAll("#bmap .seat.zone").forEach((el) => el.classList.add("scan")); }
+    if (i === 1) {
+      document.querySelectorAll("#bmap .seat.scan").forEach((el) => el.classList.remove("scan"));
+      seats.forEach((x, k) => setTimeout(() => { const el = seatEl(x); if (el) { el.className = "seat held"; el.textContent = x.s; } }, k * 260));
+      let left = 600;
+      lbl(T.heldFor(cinema ? what : T.a1(false, what, n)), "held", "10:00");
+      holdTimer = setInterval(() => { left--; if ($("#holdt")) $("#holdt").textContent = `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`; }, 1000);
+    }
+  } }); });
+  if (S.screen !== "booking") return;
+
+  // ---- payment: the user's Face ID → card network → capture
+  const paid = await payWithFaceId(p);
+  if (!paid) { clearInterval(holdTimer); toast(T.released); go("checkout"); return; }
+  if (card) markCardPaid(card, paid);
+
+  // ---- phase B: confirm in the venue system → issue → deliver
+  const codes = Array.from({ length: n }, (_, k) => ticketCode(paid, k, e));
+  bookRun = AgentPayUI.stages($("#bstB"), [
+    { title: T.b0, detail: `${money(paid.total)} · ${paid.paymentMethod} · ${paid.id}`, ms: 1300 },
+    { title: T.b1(cinema, VN), detail: T.b1d(what), ms: 2700 },
+    { title: T.b2(n), detail: codes.join(" · "), ms: 2700 },
+    { title: T.b3, detail: T.b3d(n), ms: 2100 },
+    { title: T.b4(cinema), detail: cinema ? T.b4d(hname(it0), e.time) : `${VN}`, ms: 1100 },
+  ], { accent: "#0F78FF", onDone: () => setTimeout(() => { if (S.screen === "booking") issueTickets(paid, viaAgent); }, 700), onStage: (i) => {
+    if (i === 1) {
+      clearInterval(holdTimer);
+      lbl(T.confirming, "held", "");
+      seats.forEach((x, k) => setTimeout(() => { const el = seatEl(x); if (el) el.className = "seat mine pop"; if (k === seats.length - 1) lbl(cinema ? T.soldTo(what) : T.soldShort, "ok", "✓"); }, 500 + k * 450));
+      if (!seats.length) setTimeout(() => lbl(T.soldShort, "ok", "✓"), 900);
+    }
+    if (i === 2) {
+      $("#bissued").style.display = "";
+      const tix = paid.lines.flatMap((l, li) => Array.from({ length: l.qty }, (_, k) => ({ l, seat: seatsFor(paid)[li]?.[k] })));
+      tix.forEach(({ l, seat }, k) => setTimeout(() => { const d = document.createElement("div"); d.className = "mtk";
+        d.innerHTML = `${qrSvg(codes[k])}${seat ? `${T.row} ${seat.r} · ${T.seat} ${seat.s}` : esc(zname(item(l.itemId)))}<small>${codes[k]}</small>`; $("#bmini")?.appendChild(d);
+        $("#bissued")?.scrollIntoView({ behavior: "smooth", block: "end" }); }, k * 600));
+    }
+    if (i === 3) { $("#bsent").innerHTML = `<div class="sentrow"><span>${T.mailSent}</span><span>${T.smsSent}</span><span class="w"> Wallet ×${n}</span></div>`; $("#view").scrollTop = 99999; }
+  } });
+}
+function markCardPaid(card, paid) {
+  card.classList.add("paid");
+  card.querySelector(".acts").innerHTML = `<div class="paidrow">${t().paidRow(money(paid.total))}</div>`;
+  const st = seatsFor(paid).flat().filter(Boolean), e = ev(item(paid.lines[0].itemId).meta.eventId);
+  const b = document.createElement("div"); b.className = "b ai";
+  b.textContent = t().done(paid.lines.reduce((s, l) => s + l.qty, 0), etitle(e), st.length ? seatText(st) : "");
+  chatLog.push(b);
+}
+
+// ======================= e-tickets =======================
+function issueTickets(p, viaAgent) {
+  clearInterval(holdTimer);
+  p.viaAgent = viaAgent;
+  S.myTickets.push(p);
+  S.order = { p, viaAgent };
+  S.cart = { venueId: null, lines: [] };
+  S.agentPayment = null;
+  closeChat();
+  go("tickets", { tab: "My tickets" });
+}
+function qrSvg(seed) {
+  const N = 29; let h = 2166136261;
+  for (const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+  const rnd = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return (h >>> 0) / 4294967296; };
+  const finder = (x, y) => `<rect x="${x}" y="${y}" width="7" height="7" fill="#1B1D27"/><rect x="${x + 1}" y="${y + 1}" width="5" height="5" fill="#fff"/><rect x="${x + 2}" y="${y + 2}" width="3" height="3" fill="#1B1D27"/>`;
+  const inF = (x, y) => (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
+  let cells = "";
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    if (inF(x, y)) continue;
+    const on = y === 6 || x === 6 ? (x + y) % 2 === 0 : rnd() < 0.5;
+    if (on) cells += `M${x} ${y}h1v1h-1z`;
+  }
+  return `<svg viewBox="-2 -2 ${N + 4} ${N + 4}" shape-rendering="crispEdges"><rect x="-2" y="-2" width="${N + 4}" height="${N + 4}" fill="#fff"/><path d="${cells}" fill="#1B1D27"/>${finder(0, 0)}${finder(N - 7, 0)}${finder(0, N - 7)}</svg>`;
+}
+function ticketsView() {
+  const { p, viaAgent } = S.order;
+  const e = ev(item(p.lines[0].itemId).meta.eventId), v = venue(e.venueId);
+  const seatMap = seatsFor(p);
+  const tix = p.lines.flatMap((l, li) => Array.from({ length: l.qty }, (_, k) => ({ l, k, seat: seatMap[li]?.[k] })));
+  const seatCols = (note, n) => { const sec = note.match(/Sectors? (\d+)–/), row = note.match(/Rows? (\d+)–/);
+    if (sec) return [[ka() ? "სექტორი" : "Sector", +sec[1] + (n % 3)], [ka() ? "რიგი / ადგილი" : "Row / Seat", `${8 + (n >> 1)} / ${14 + n}`]];
+    if (row) return [[t().row, +row[1] + 3], [t().seat, 11 + n]];
+    return [[ka() ? "შესვლა" : "Entry", ka() ? "საერთო" : "General"], [ka() ? "კარიბჭე" : "Gate", ka() ? "მთავარი" : "Main"]]; };
+  return `
+  <div class="tkhead" style="position:relative"><button class="x" onclick="go('home',{tab:'Home'})">${I.close}</button>
+    <div class="ok">${I.okc}</div><h1>${t().going}</h1><p>${esc(t().etCount(tix.length, money(p.total), p.paymentMethod))}</p></div>
+  <div class="tickets">
+    ${tix.map(({ l, k, seat }, n) => { const it = item(l.itemId); const cols = seat ? [[t().hall, (hname(it).match(/\d+/) || [hname(it)])[0]], [t().row, seat.r], [t().seat, seat.s]] : [[t().zone, zname(it)], ...seatCols(it.meta.note, n)]; const code = ticketCode(p, n, e);
+      return `<div class="tk"><span class="of">${t().of(n + 1, tix.length)}</span>
+      <div class="top"><img src="${poster(e.poster, 160, 200)}" alt=""><div><b>${esc(etitle(e))}</b><small>${when(e)}</small><small>${esc(ka() ? vnm(v) : v.meta?.fullName || v.name)}</small></div></div>
+      <div class="grid2">${cols.map(([k, v]) => `<div><small>${k}</small><b>${esc(v)}</b></div>`).join("")}</div>${seat ? `<div style="padding:0 14px 12px;font-size:12px;color:var(--muted)">${esc(zname(it))}</div>` : ""}
+      ${l.options.length ? `<div style="padding:0 14px 12px;font-size:12px;color:var(--muted)">+ ${esc(lopts(l).join(", "))}</div>` : ""}
+      <div class="perf"></div>
+      <div class="qr">${qrSvg(code)}<code>${code}</code></div></div>`; }).join("")}
+    ${seatMap.some(Boolean) ? `<button class="btn sec2" onclick="openSeatMap('${p.lines[seatMap.findIndex(Boolean)].itemId}', seatsFor(S.order.p).flat().filter(Boolean))">${t().viewSeats}</button>` : ""}
+    <button class="wallet">${I.apple} ${t().wallet}</button>
+    ${viaAgent ? `<div class="agentpaid">${t().byAI}</div>` : ""}
+    <div class="block" style="margin:0"><h3>${t().order} ${esc(p.id.replace("pi_tktge_", "#TKT-"))}</h3>
+      ${p.lines.map((l) => `<div class="line"><span class="q">${l.qty}×</span><div class="nm">${esc(zname(item(l.itemId)))}${l.options.length ? `<div class="mods">${esc(lopts(l).join(", "))}</div>` : ""}</div><span class="pr">${money(l.qty * l.unitPrice)}</span></div>`).join("")}
+      <div class="sum"><span>${t().service}</span><span>${money(p.serviceFee)}</span></div>
+      <div class="sum total"><span>${t().paid}</span><span>${money(p.total)}</span></div>
+    </div>
+    <div style="height:10px"></div>
+  </div>`;
+}
+
+// ======================= AI chat =======================
+function openChat(prefill) {
+  if (S.chatOpen) return;
+  S.chatOpen = true;
+  const c = document.createElement("div");
+  c.className = "chat";
+  c.id = "chat";
+  c.innerHTML = `
+    <div class="chathead"><button onclick="closeChat()">${I.back}</button><div class="ailogo">✦</div>
+      <div style="min-width:0;flex:1"><b>tkt.ge AI</b><small><i></i>${t().sub(esc(locShort()))}</small></div>
+      <div class="langsw"><button class="${LANG === "en" ? "on" : ""}" onclick="setLang('en')">EN</button><button class="${LANG === "ka" ? "on" : ""}" onclick="setLang('ka')">ქარ</button></div></div>
+    <div class="msgs" id="msgs">
+      <div class="welcome"><div class="ailogo">✦</div><h2>${t().title}</h2><p>${t().intro}</p>
+        <div class="sugg">${t().chips.map((c) => `<button>${esc(c)}</button>`).join("")}</div></div>
+    </div>
+    <form class="composer" id="composer"><button type="button" class="mic" id="mic">${I.mic}</button><input id="q" placeholder="${esc(t().ph)}" autocomplete="off" /><button class="send">${I.send}</button></form>`;
+  $("#screen").appendChild(c);
+  c.querySelectorAll(".sugg button").forEach((b) => b.onclick = () => send(b.textContent));
+  $("#composer").onsubmit = (e) => { e.preventDefault(); send($("#q").value); };
+  setupMic();
+  if (chatLog.length) { $(".welcome").remove(); chatLog.forEach((el) => $("#msgs").appendChild(el)); scrollChat(); }
+  if (prefill) $("#q").value = prefill;
+  setTimeout(() => $("#q")?.focus(), 250);
+}
+function closeChat() {
+  const c = $("#chat");
+  if (c) { chatLog = [...$("#msgs").children].filter((e) => !e.classList.contains("welcome")); c.remove(); }
+  S.chatOpen = false;
+}
+let chatLog = [];
+const scrollChat = () => { const m = $("#msgs"); if (m) m.scrollTop = m.scrollHeight; };
+function bubble(cls, text) { const b = document.createElement("div"); b.className = "b " + cls; b.textContent = text; $("#msgs").appendChild(b); scrollChat(); return b; }
+
+async function send(text) {
+  text = text.trim();
+  if (!text || S.busy) return;
+  S.busy = true;
+  if (/[\u10A0-\u10FF]/.test(text) !== ka()) { LANG = ka() ? "en" : "ka"; localStorage.setItem("agentpay_lang", LANG); AgentPayUI.lang = LANG;
+    document.querySelectorAll(".langsw button").forEach((b, i) => b.classList.toggle("on", (i === 1) === ka())); $("#q").placeholder = t().ph; }
+  $("#q").value = "";
+  $(".welcome")?.remove();
+  bubble("me", text);
+  const tb = AgentPayUI.thinking($("#msgs"), { accent: "#0F78FF", onUpdate: scrollChat });
+  const replyHolder = document.createElement("div");
+  replyHolder.style.display = "contents";
+  $("#msgs").appendChild(replyHolder);
+  hoodClear(text);
+  await agent.send(text, (e) => {
+    hoodEvent(e);
+    if (e.type === "status") tb.status(e.text);
+    if (e.type === "thinking") tb.thought(e.text);
+    if (e.type === "tool") tb.step(e.label, !e.result?.error);
+    if (e.type === "payment") tb.settled().then(() => orderCard(e.payment));
+    if (e.type === "reply" && e.text) tb.settled().then(() => { const b = document.createElement("div"); b.className = "b ai"; b.textContent = e.text; replyHolder.appendChild(b); scrollChat(); });
+    if (e.type === "error") tb.settled().then(() => bubble("ai", "⚠ " + e.text));
+    if (e.type === "done") tb.done();
+  }).catch(() => { tb.done(); bubble("ai", t().conn); });
+  await tb.settled();
+  S.busy = false;
+  refreshHood();
+}
+
+function orderCard(p) {
+  // Mirror the agent's proposal into the app's own cart, so checkout shows it too.
+  S.cart = { venueId: p.venue.id, lines: p.lines.map((l) => ({ itemId: l.itemId, qty: l.qty, optionIds: l.options.map((n) => item(l.itemId).options.find((o) => o.name === n).id) })) };
+  S.agentPayment = p;
+  S.cartSignature = sig();
+  document.querySelectorAll(".ocard:not(.paid) .acts").forEach((a) => a.innerHTML = `<div class="note">${t().replaced}</div>`);
+
+  const e = ev(item(p.lines[0].itemId).meta.eventId), v = venue(p.venue.id);
+  const card = document.createElement("div");
+  card.className = "ocard";
+  card.innerHTML = `
+    <div class="vh"><img src="${poster(e.poster, 160, 200)}" alt=""><div><b>${esc(etitle(e))}</b><small>${when(e)}</small><small>${esc(vnm(v))} · ${t().away(dist(v))}</small></div></div>
+    <div class="ls">${p.lines.map((l, li) => { const it = item(l.itemId), seats = seatsFor(p)[li]; return `<div class="line" ${seats ? 'style="border:0"' : ""}><span class="q">${l.qty}×</span><div class="nm">${esc(zname(it))}<div class="mods">${esc(znote(it))}</div>${l.options.length ? `<div class="mods">+ ${esc(lopts(l).join(", "))}</div>` : ""}${l.note ? `<div class="mods">“${esc(l.note)}”</div>` : ""}</div><span class="pr">${money(l.qty * l.unitPrice)}</span></div>
+      ${seats ? `<div class="seatpick">🪑 <b>${esc(seatText(seats))}</b><small>${seats.length === l.qty && new Set(seats.map((x) => x.r)).size === 1 ? t().pickAdj : t().pickAny} ${esc(zname(it).toLowerCase().replace(/,.*/, ""))}</small><button class="linkbtn" data-seat="${li}">${t().viewMap}</button></div>` : ""}`; }).join("")}</div>
+    <div class="sums">
+      <div class="sum"><span>${t().tickets}</span><span>${money(p.subtotal)}</span></div>
+      <div class="sum"><span>${t().service}</span><span>${money(p.serviceFee)}</span></div>
+      <div class="sum total"><span>${t().total}</span><span>${money(p.total)}</span></div>
+    </div>
+    <div class="pm"><span class="mc"></span>${esc(p.paymentMethod)}<span style="margin-left:auto;color:var(--blue)">${t().change}</span></div>
+    <div class="acts">
+      <button class="btn pay">${t().pay} ${money(p.total)}</button>
+      <button class="btn sec2 edit">${t().review}</button>
+      <div class="note">${t().safe}</div>
+    </div>`;
+  card.querySelector(".pay").onclick = (ev2) => { ev2.target.disabled = true; startBooking(p, true, card); };
+  card.querySelector(".edit").onclick = () => { closeChat(); go("checkout"); };
+  card.querySelectorAll("[data-seat]").forEach((b) => b.onclick = () => openSeatMap(p.lines[+b.dataset.seat].itemId, seatsFor(p)[+b.dataset.seat]));
+  $("#msgs").appendChild(card);
+  scrollChat();
+}
+
+function setupMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const mic = $("#mic");
+  if (!SR) { mic.style.display = "none"; return; }
+  let rec;
+  mic.onclick = () => {
+    if (rec) { rec.stop(); return; }
+    rec = new SR(); rec.lang = ka() ? "ka-GE" : "en-US"; rec.interimResults = true;
+    mic.classList.add("rec");
+    rec.onresult = (e) => { $("#q").value = [...e.results].map((r) => r[0].transcript).join(""); };
+    rec.onend = () => { mic.classList.remove("rec"); rec = null; if ($("#q").value.trim()) send($("#q").value); };
+    rec.start();
+  };
+}
+
+function toast(t) { const d = document.createElement("div"); d.className = "toast"; d.textContent = t; $("#screen").appendChild(d); setTimeout(() => d.remove(), 3200); }
+
+// ======================= under the hood =======================
+function hoodClear(text) { $("#hood-trace").innerHTML = `<div class="ev st">${USER_ID} → <b>${esc(text)}</b></div>`; }
+function hoodEvent(e) {
+  const t = $("#hood-trace");
+  const div = document.createElement("div");
+  if (e.type === "status") { div.className = "ev st"; div.textContent = "⋯ agent: " + e.text; }
+  else if (e.type === "thinking") { div.className = "ev st"; div.style.color = "#a9c7dc"; div.textContent = "💭 " + e.text; }
+  else if (e.type === "tool") { div.className = "ev"; div.innerHTML = `<b>${esc(e.tool)}</b>(${esc(JSON.stringify(e.args))})\n→ ${esc(JSON.stringify(e.result).slice(0, 420))}`; }
+  else if (e.type === "payment") { div.className = "ev pay"; div.innerHTML = `<b>payment intent</b> ${esc(e.payment.id)} · ${money(e.payment.total)} · <span class="s-awaiting">awaiting_user_confirmation</span>`; }
+  else if (e.type === "reply") { div.className = "ev st"; div.textContent = "reply: " + e.text; }
+  else if (e.type === "error") { div.className = "ev"; div.style.borderColor = "#f04"; div.textContent = "error: " + e.text; }
+  else return;
+  t.appendChild(div);
+  t.parentElement.scrollTop = t.parentElement.scrollHeight;
+}
+async function refreshHood() {
+  const s = await fetch("/debug/tktge").then((r) => r.json());
+  $("#hood-agent").innerHTML = `${s.mode === "gemini" ? `Gemini <b style="color:#fff">${esc(s.model)}</b>` : `<b style="color:#ffc24b">MOCK</b> (no GEMINI_API_KEY)`} · function calling · per-tenant memory`;
+  const u = Object.entries(s.memory);
+  $("#hood-mem").innerHTML = u.length ? u.map(([id, m]) => `<div><b style="color:#fff">${esc(id)}</b> · ${m.history.length} messages<br>${m.preferences.map((p) => `<span class="tag">${esc(p)}</span>`).join("") || '<span style="color:#7a8a9a">no saved preferences</span>'}</div>`).join("") : '<span style="color:#7a8a9a">empty</span>';
+  $("#hood-pay").innerHTML = s.payments.length ? s.payments.slice(-4).reverse().map((p) => `<div style="margin-bottom:6px">${esc(p.id)} · ${money(p.total)} · ${p.history.map((h) => `<span class="s-${h.status.split("_")[0]}">${h.status}</span><span style="color:#7a8a9a">(${h.by})</span>`).join(" → ")}</div>`).join("") : '<span style="color:#7a8a9a">none</span>';
+}
+$("#reset").onclick = async () => { await fetch("/debug/tktge/reset", { method: "POST" }); location.reload(); };
+$("#hoodtoggle").onclick = () => { $("#hood").classList.toggle("off"); $("#hoodtoggle").textContent = $("#hood").classList.contains("off") ? "Show under the hood" : "Hide under the hood"; };
+
+// ======================= boot =======================
+(async () => {
+  S.data = await fetch("/demo-data/tktge").then((r) => r.json());
+  const byId = {};
+  for (const i of S.data.catalog) {
+    const m = i.meta;
+    (byId[m.eventId] ||= { id: m.eventId, film: m.film, title: m.event, titleKa: m.eventKa, sub: m.sub, kind: m.kind, date: m.date, dow: m.dow, time: m.time, poster: m.poster, about: m.about, venueId: i.venueId, items: [] }).items.push(i);
+  }
+  S.events = Object.values(byId);
+  AgentPayUI.lang = LANG;
+  agent = AgentPay.init({ key: "pk_tktge_demo", userId: USER_ID, location: S.data.location });
+  $("#fab").onclick = () => openChat();
+  render();
+  refreshHood();
+  if (new URLSearchParams(location.search).has("clean")) { $("#hood").classList.add("off"); $("#hoodtoggle").textContent = "Show under the hood"; }
+})();
+</script>
+</body>
+</html>

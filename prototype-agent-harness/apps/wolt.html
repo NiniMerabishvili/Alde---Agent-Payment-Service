@@ -1,0 +1,759 @@
+<!doctype html>
+<!-- PROTOTYPE — throwaway investor demo. A Wolt look-alike host app with the AgentPay agent built in via /sdk.js.
+     Everything Wolt-specific (screens, cart, checkout) is "the client's app"; the agent + payments come from our API. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Wolt — AI ordering demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --blue: #009de0; --blue-dark: #0088c2; --blue-08: rgba(0,157,224,.08); --blue-16: rgba(0,157,224,.16);
+    --text: #202125; --muted: rgba(32,33,37,.64); --faint: rgba(32,33,37,.4); --line: rgba(32,33,37,.1);
+    --surface: #f7f7f7; --green: #1fc16b; --radius: 12px;
+    font-family: Nunito, -apple-system, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: #eef1f4; color: var(--text); min-height: 100vh; display: flex; justify-content: center; align-items: center; gap: 40px; padding: 24px; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  img { display: block; }
+
+  /* ---------- phone frame ---------- */
+  .phone { width: 390px; height: 844px; border-radius: 54px; background: #111; padding: 11px; box-shadow: 0 30px 80px rgba(0,0,0,.25); flex-shrink: 0; position: relative; }
+  .screen { width: 100%; height: 100%; border-radius: 44px; overflow: hidden; background: #fff; position: relative; display: flex; flex-direction: column; }
+  .island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 120px; height: 34px; background: #111; border-radius: 20px; z-index: 50; }
+  .statusbar { height: 50px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 30px 6px 34px; font-weight: 800; font-size: 15px; flex-shrink: 0; z-index: 40; background: #fff; }
+  .statusbar .icons { display: flex; gap: 6px; align-items: center; }
+  @media (max-width: 520px) {
+    body { padding: 0; background: #fff; display: block; }
+    .phone { width: 100vw; height: 100dvh; border-radius: 0; padding: 0; box-shadow: none; }
+    .screen { border-radius: 0; }
+    .island, .statusbar, .hood { display: none !important; }
+    .chat { top: 0; }
+  }
+
+  .view { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; scrollbar-width: none; }
+  .view::-webkit-scrollbar { display: none; }
+
+  /* ---------- discovery ---------- */
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 16px 10px; position: sticky; top: 0; background: #fff; z-index: 5; }
+  .loc { display: flex; align-items: center; gap: 8px; background: var(--blue-08); color: var(--blue); padding: 8px 12px; border-radius: 99px; font-weight: 800; font-size: 14px; max-width: 250px; }
+  .loc span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--blue-08); color: var(--blue); display: grid; place-items: center; font-weight: 900; }
+  .search { margin: 4px 16px 14px; display: flex; align-items: center; gap: 10px; background: var(--surface); border-radius: 99px; padding: 11px 14px; color: var(--muted); font-weight: 600; font-size: 15px; width: calc(100% - 32px); text-align: left; }
+  .search .ai { margin-left: auto; color: var(--blue); font-weight: 800; font-size: 13px; display: flex; gap: 4px; align-items: center; }
+  .hero { margin: 0 16px 18px; border-radius: 16px; padding: 18px; color: #fff; background: linear-gradient(135deg, #009de0 0%, #0066b3 100%); position: relative; overflow: hidden; display: block; width: calc(100% - 32px); text-align: left; }
+  .hero h3 { font-size: 21px; font-weight: 900; line-height: 1.15; margin-bottom: 6px; }
+  .hero p { font-size: 13.5px; opacity: .92; font-weight: 600; max-width: 230px; }
+  .hero .cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; background: #fff; color: var(--blue); padding: 8px 14px; border-radius: 99px; font-weight: 800; font-size: 13.5px; }
+  .hero .spark { position: absolute; right: -6px; top: -4px; font-size: 92px; opacity: .18; }
+  .cats { display: flex; gap: 14px; overflow-x: auto; padding: 0 16px 18px; scrollbar-width: none; }
+  .cat { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
+  .cat .ic { width: 64px; height: 64px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-size: 30px; }
+  .sec { display: flex; justify-content: space-between; align-items: baseline; padding: 0 16px 10px; }
+  .sec h2 { font-size: 22px; font-weight: 900; letter-spacing: -.2px; }
+  .sec a { color: var(--blue); font-weight: 800; font-size: 14px; }
+  .carousel { display: flex; gap: 12px; overflow-x: auto; padding: 0 16px 22px; scrollbar-width: none; }
+  .vcard { width: 260px; flex-shrink: 0; text-align: left; }
+  .vlist { padding: 0 16px 120px; display: flex; flex-direction: column; gap: 20px; }
+  .vlist .vcard { width: 100%; }
+  .vimg { position: relative; border-radius: var(--radius); overflow: hidden; aspect-ratio: 16/9; background: var(--surface); }
+  .vimg img { width: 100%; height: 100%; object-fit: cover; }
+  .eta { position: absolute; right: 8px; bottom: 8px; background: #fff; border-radius: 8px; padding: 4px 8px; text-align: center; font-weight: 800; font-size: 13px; line-height: 1.1; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+  .eta small { display: block; font-size: 10.5px; color: var(--muted); font-weight: 700; }
+  .vname { font-weight: 800; font-size: 16px; margin-top: 8px; }
+  .vsub { color: var(--muted); font-size: 13.5px; font-weight: 600; }
+  .vmeta { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); font-weight: 700; margin-top: 4px; border-top: 1px solid var(--line); padding-top: 6px; }
+  .vmeta .fee { color: var(--blue); }
+
+  /* ---------- bottom nav + floating AI ---------- */
+  .nav { display: flex; justify-content: space-around; border-top: 1px solid var(--line); background: #fff; padding: 8px 0 22px; flex-shrink: 0; }
+  .nav button { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--faint); width: 70px; }
+  .nav button.on { color: var(--blue); }
+  .nav svg { width: 24px; height: 24px; }
+  .fab { position: absolute; right: 16px; bottom: 96px; z-index: 20; background: var(--blue); color: #fff; border-radius: 99px; padding: 13px 18px 13px 15px; font-weight: 900; font-size: 15px; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 22px rgba(0,157,224,.45); }
+  .fab.hide { display: none; }
+
+  /* ---------- venue ---------- */
+  .vhero { position: relative; height: 210px; }
+  .vhero img { width: 100%; height: 100%; object-fit: cover; }
+  .vhero .btns { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; justify-content: space-between; }
+  .circle { width: 38px; height: 38px; border-radius: 50%; background: #fff; display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+  .vhead { padding: 16px; }
+  .vhead h1 { font-size: 30px; font-weight: 900; letter-spacing: -.4px; }
+  .vhead .sub { color: var(--muted); font-weight: 700; font-size: 14px; margin-top: 2px; }
+  .chips { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .chip { background: var(--surface); border-radius: 99px; padding: 7px 12px; font-size: 13px; font-weight: 800; display: flex; gap: 6px; align-items: center; }
+  .chip.blue { background: var(--blue-08); color: var(--blue); }
+  .tabs { position: sticky; top: 0; background: #fff; z-index: 4; display: flex; gap: 18px; padding: 0 16px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+  .tabs a { padding: 12px 0; font-weight: 800; font-size: 14.5px; color: var(--muted); white-space: nowrap; border-bottom: 3px solid transparent; }
+  .tabs a.on { color: var(--text); border-color: var(--text); }
+  .menu h3 { font-size: 20px; font-weight: 900; padding: 20px 16px 4px; }
+  .mi { display: flex; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); text-align: left; width: 100%; align-items: flex-start; }
+  .mi .t { flex: 1; min-width: 0; }
+  .mi b { font-size: 15.5px; font-weight: 800; display: block; }
+  .mi p { color: var(--muted); font-size: 13.5px; font-weight: 600; margin: 3px 0 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .price { color: var(--blue); font-weight: 800; font-size: 14.5px; }
+  .mi img { width: 104px; height: 78px; border-radius: 10px; object-fit: cover; flex-shrink: 0; }
+  .mi .qbadge { background: var(--blue); color: #fff; border-radius: 6px; font-size: 12px; padding: 1px 6px; margin-right: 6px; font-weight: 800; }
+
+  .cartbar { position: absolute; left: 16px; right: 16px; bottom: 26px; z-index: 15; background: var(--blue); color: #fff; border-radius: 10px; padding: 15px 16px; display: flex; align-items: center; font-weight: 800; font-size: 16px; box-shadow: 0 6px 18px rgba(0,157,224,.35); }
+  .cartbar .n { background: rgba(255,255,255,.22); border-radius: 6px; padding: 1px 8px; margin-right: 10px; }
+  .cartbar .p { margin-left: auto; }
+
+  /* ---------- sheets ---------- */
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.4); z-index: 60; display: flex; align-items: flex-end; animation: fade .2s; }
+  .sheet { background: #fff; width: 100%; border-radius: 18px 18px 0 0; max-height: 92%; display: flex; flex-direction: column; animation: up .25s ease-out; }
+  .sheet .body { overflow-y: auto; flex: 1; scrollbar-width: none; }
+  @keyframes up { from { transform: translateY(40%); opacity: .4; } }
+  @keyframes fade { from { opacity: 0; } }
+  .itemimg { width: 100%; height: 220px; object-fit: cover; border-radius: 18px 18px 0 0; }
+  .ihead { padding: 16px; }
+  .ihead h2 { font-size: 24px; font-weight: 900; }
+  .ihead .price { font-size: 17px; }
+  .ihead p { color: var(--muted); font-weight: 600; font-size: 14px; margin-top: 6px; }
+  .og { padding: 6px 16px 12px; }
+  .og h4 { font-size: 17px; font-weight: 900; margin: 8px 0 2px; }
+  .og small { color: var(--muted); font-weight: 700; font-size: 12.5px; }
+  .opt { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); font-weight: 700; font-size: 15px; width: 100%; text-align: left; }
+  .box { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--faint); display: grid; place-items: center; flex-shrink: 0; }
+  .opt.on .box { background: var(--blue); border-color: var(--blue); }
+  .opt.on .box::after { content: ""; width: 10px; height: 6px; border: 2.5px solid #fff; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px,-1px); }
+  .opt .x { margin-left: auto; color: var(--muted); font-size: 14px; }
+  .sheetfoot { display: flex; gap: 12px; padding: 12px 16px 26px; border-top: 1px solid var(--line); }
+  .stepper { display: flex; align-items: center; gap: 14px; background: var(--surface); border-radius: 10px; padding: 0 12px; font-weight: 900; font-size: 17px; }
+  .stepper button { color: var(--blue); font-size: 24px; width: 24px; }
+  .btn { background: var(--blue); color: #fff; border-radius: 10px; padding: 15px 16px; font-weight: 800; font-size: 16px; flex: 1; display: flex; justify-content: center; gap: 8px; }
+  .btn:disabled { opacity: .5; }
+  .btn.sec2 { background: var(--blue-08); color: var(--blue); }
+
+  /* ---------- checkout ---------- */
+  .pagehead { display: flex; align-items: center; gap: 12px; padding: 8px 16px 12px; position: sticky; top: 0; background: #fff; z-index: 5; }
+  .pagehead h1 { font-size: 20px; font-weight: 900; }
+  .seg { display: flex; background: var(--surface); border-radius: 99px; padding: 4px; margin: 0 16px 16px; }
+  .seg div { flex: 1; text-align: center; padding: 8px; border-radius: 99px; font-weight: 800; font-size: 14px; color: var(--muted); }
+  .seg .on { background: #fff; color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+  .block { padding: 0 16px 18px; }
+  .block h3 { font-size: 18px; font-weight: 900; margin-bottom: 10px; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border-radius: 12px; font-weight: 700; font-size: 14.5px; margin-bottom: 8px; }
+  .row .ic { width: 36px; height: 36px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-size: 17px; flex-shrink: 0; }
+  .row small { display: block; color: var(--muted); font-weight: 600; font-size: 13px; }
+  .row .chev { margin-left: auto; color: var(--faint); }
+  .line { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: flex-start; }
+  .line img { width: 56px; height: 44px; border-radius: 8px; object-fit: cover; }
+  .line .q { color: var(--blue); font-weight: 900; min-width: 24px; }
+  .line .nm { flex: 1; font-weight: 800; font-size: 14.5px; }
+  .line .mods { color: var(--muted); font-size: 12.5px; font-weight: 700; }
+  .line .pr { font-weight: 800; font-size: 14px; }
+  .sum { display: flex; justify-content: space-between; font-weight: 700; color: var(--muted); font-size: 14.5px; padding: 4px 0; }
+  .sum.total { color: var(--text); font-weight: 900; font-size: 17px; padding-top: 8px; }
+
+  /* ---------- tracking ---------- */
+  .map { height: 330px; position: relative; background: #e8eef2; overflow: hidden; }
+  .map svg { position: absolute; inset: 0; }
+  .courier { offset-path: path("M 300 70 C 250 120, 230 150, 190 170 S 120 220, 90 260"); animation: ride 40s linear forwards; position: absolute; left: 0; top: 0; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; display: grid; place-items: center; font-size: 16px; box-shadow: 0 3px 10px rgba(0,0,0,.25); }
+  .courier.wait { animation-play-state: paused; }
+  @keyframes ride { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+  .track { padding: 18px 16px 30px; margin-top: -18px; background: #fff; border-radius: 18px 18px 0 0; position: relative; }
+  .track .big { font-size: 26px; font-weight: 900; letter-spacing: -.3px; }
+  .track .eta2 { color: var(--blue); font-weight: 900; font-size: 15px; margin-top: 2px; }
+  .bar { display: flex; gap: 6px; margin: 16px 0 18px; }
+  .bar i { flex: 1; height: 5px; border-radius: 5px; background: var(--line); position: relative; overflow: hidden; }
+  .bar i.done { background: var(--blue); }
+  .bar i.now::after { content: ""; position: absolute; inset: 0; background: var(--blue); animation: load 1.6s ease-in-out infinite; }
+  @keyframes load { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+  .agentpaid { display: flex; gap: 10px; align-items: center; background: var(--blue-08); border-radius: 12px; padding: 12px 14px; font-weight: 700; font-size: 13.5px; color: var(--blue-dark); margin-bottom: 14px; }
+
+  /* ---------- AI chat ---------- */
+  .chat { position: absolute; inset: 50px 0 0 0; background: #fff; z-index: 55; display: flex; flex-direction: column; animation: up .25s ease-out; }
+  .chathead { display: flex; align-items: center; gap: 10px; padding: 8px 14px 12px; border-bottom: 1px solid var(--line); }
+  .chathead .logo { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, #009de0, #0066b3); color: #fff; display: grid; place-items: center; font-size: 19px; }
+  .chathead b { font-weight: 900; font-size: 16.5px; display: block; }
+  .chathead small { color: var(--muted); font-weight: 700; font-size: 12px; display: flex; align-items: center; gap: 5px; }
+  .chathead small i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; }
+  .msgs { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; scrollbar-width: none; background: #fff; }
+  .b { max-width: 82%; padding: 10px 14px; border-radius: 18px; font-size: 15px; font-weight: 600; line-height: 1.38; white-space: pre-wrap; }
+  .b.me { align-self: flex-end; background: var(--blue); color: #fff; border-bottom-right-radius: 6px; }
+  .b.ai { align-self: flex-start; background: var(--surface); border-bottom-left-radius: 6px; }
+  .welcome { text-align: center; padding: 24px 10px 8px; }
+  .welcome .logo { width: 60px; height: 60px; border-radius: 18px; margin: 0 auto 12px; background: linear-gradient(135deg, #009de0, #0066b3); color: #fff; display: grid; place-items: center; font-size: 30px; }
+  .welcome h2 { font-size: 22px; font-weight: 900; }
+  .welcome p { color: var(--muted); font-weight: 600; font-size: 14px; margin-top: 4px; }
+  .sugg { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+  .sugg button { background: var(--blue-08); color: var(--blue-dark); padding: 11px 14px; border-radius: 12px; font-weight: 800; font-size: 14px; text-align: left; }
+  .steps { align-self: flex-start; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: var(--muted); padding: 2px 4px; max-width: 92%; }
+  .step { display: flex; gap: 8px; align-items: flex-start; animation: fade .3s; }
+  .step .d { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; margin-top: 1px; display: grid; place-items: center; font-size: 10px; }
+  .step.ok .d { background: var(--blue); color: #fff; }
+  .step.err .d { background: #f04; color: #fff; }
+  .step.run .d { border: 2px solid var(--blue-16); border-top-color: var(--blue); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ocard { align-self: stretch; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,.06); animation: up .3s ease-out; }
+  .ocard .vh { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .ocard .vh img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; }
+  .ocard .vh b { font-weight: 900; font-size: 15.5px; display: block; }
+  .ocard .vh small { color: var(--muted); font-weight: 700; font-size: 12.5px; }
+  .ocard .ls { padding: 4px 14px; }
+  .ocard .sums { padding: 8px 14px; border-top: 1px solid var(--line); }
+  .ocard .sum { font-size: 13.5px; padding: 2px 0; }
+  .ocard .sum.total { font-size: 16px; }
+  .ocard .pm { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); font-weight: 800; font-size: 14px; }
+  .visa { background: #1a1f71; color: #fff; font-weight: 900; font-style: italic; font-size: 11px; padding: 3px 6px; border-radius: 4px; }
+  .ocard .acts { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .ocard .note { font-size: 11.5px; color: var(--muted); font-weight: 700; text-align: center; }
+  .ocard.paid { border-color: var(--green); }
+  .paidrow { display: flex; align-items: center; gap: 8px; color: var(--green); font-weight: 900; justify-content: center; padding: 6px 0; }
+  .langsw { display: flex; background: var(--surface); border-radius: 99px; padding: 3px; flex-shrink: 0; }
+  .langsw button { padding: 5px 9px; border-radius: 99px; font-weight: 800; font-size: 12px; color: var(--muted); }
+  .langsw button.on { background: #fff; color: var(--blue); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .composer { display: flex; gap: 8px; align-items: center; padding: 10px 12px 26px; border-top: 1px solid var(--line); }
+  .composer input { flex: 1; background: var(--surface); border: 0; border-radius: 99px; padding: 13px 16px; font: inherit; font-size: 15px; font-weight: 600; outline: none; color: var(--text); }
+  .composer .send { width: 44px; height: 44px; border-radius: 50%; background: var(--blue); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+  .composer .mic { width: 44px; height: 44px; border-radius: 50%; background: var(--surface); color: var(--blue); display: grid; place-items: center; flex-shrink: 0; }
+  .composer .mic.rec { background: #f04; color: #fff; }
+
+  /* ---------- Face ID ---------- */
+  .faceid { position: absolute; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(0,0,0,.25); animation: fade .15s; }
+  .faceid div { width: 150px; height: 150px; border-radius: 30px; background: rgba(30,30,30,.82); backdrop-filter: blur(10px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #fff; font-weight: 700; font-size: 14px; }
+  .faceid svg { width: 64px; height: 64px; }
+
+  .toast { position: absolute; top: 60px; left: 16px; right: 16px; z-index: 95; background: var(--text); color: #fff; padding: 12px 14px; border-radius: 12px; font-weight: 700; font-size: 14px; animation: up .25s; }
+
+  /* ---------- under the hood (desktop only) ---------- */
+  .hood { width: 440px; height: 844px; background: #0f1720; color: #cfe3f1; border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.2); }
+  .hood.off { display: none; }
+  .hood h2 { font-family: Nunito, sans-serif; font-size: 18px; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .hood h2 small { margin-left: auto; font-size: 11px; color: #7fb7d8; font-weight: 700; }
+  .hood h4 { font-family: Nunito, sans-serif; color: #7fb7d8; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; margin-bottom: 6px; }
+  .hood .pane { background: #16212d; border-radius: 12px; padding: 12px; overflow: auto; }
+  .hood .trace { flex: 1; }
+  .hood .ev { border-left: 2px solid #009de0; padding: 2px 0 2px 8px; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
+  .hood .ev b { color: #fff; }
+  .hood .ev.pay { border-color: #1fc16b; }
+  .hood .ev.st { border-color: #3a4a5a; color: #7a8a9a; }
+  .hood .tag { display: inline-block; background: #22303f; padding: 1px 6px; border-radius: 4px; margin: 2px 4px 2px 0; }
+  .hood .s-await { color: #ffc24b; } .hood .s-captured { color: #1fc16b; } .hood .s-cancelled { color: #ff6b6b; }
+  .hood .reset { margin-left: 8px; background: #22303f; color: #cfe3f1; padding: 4px 10px; border-radius: 6px; font-family: Nunito, sans-serif; font-weight: 800; font-size: 11px; }
+  .hoodtoggle { position: fixed; right: 16px; bottom: 16px; background: #0f1720; color: #fff; padding: 8px 12px; border-radius: 8px; font-weight: 800; font-size: 12px; z-index: 200; }
+  @media (max-width: 960px) { .hood, .hoodtoggle { display: none !important; } }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="island"></div>
+    <div class="screen" id="screen">
+      <div class="statusbar"><span>9:41</span><span class="icons">
+        <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#000"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#000"/><rect x="10" y="2.5" width="3" height="9.5" rx="1" fill="#000"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#000"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2.5c2.3 0 4.4.9 6 2.4l1.2-1.3A10.4 10.4 0 0 0 8 .7 10.4 10.4 0 0 0 .8 3.6L2 4.9a8.6 8.6 0 0 1 6-2.4Zm0 3.6c1.3 0 2.5.5 3.4 1.3l1.2-1.3A6.6 6.6 0 0 0 8 4.3a6.6 6.6 0 0 0-4.6 1.8l1.2 1.3c.9-.8 2.1-1.3 3.4-1.3Zm0 3.6c.4 0 .8.2 1.1.4L8 11.3 6.9 10.1c.3-.2.7-.4 1.1-.4Z" fill="#000"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#000" opacity=".4" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#000"/><rect x="25" y="4.5" width="1.5" height="4" rx=".75" fill="#000" opacity=".4"/></svg>
+      </span></div>
+      <div class="view" id="view"></div>
+      <button class="fab" id="fab">✦ Order with AI</button>
+      <nav class="nav" id="nav"></nav>
+    </div>
+  </div>
+
+  <aside class="hood" id="hood">
+    <h2>✦ Under the hood <small>AgentPay · tenant: wolt</small></h2>
+    <div class="pane"><h4>Agent</h4><div id="hood-agent">…</div></div>
+    <div class="pane trace"><h4>Live agent trace</h4><div id="hood-trace"><span style="color:#7a8a9a">Waiting for a message…</span></div></div>
+    <div class="pane"><h4>Wolt tenant memory (isolated) <button class="reset" id="reset">Reset demo</button></h4><div id="hood-mem"></div></div>
+    <div class="pane"><h4>Payments (state machine)</h4><div id="hood-pay"></div></div>
+  </aside>
+  <button class="hoodtoggle" id="hoodtoggle">Hide under the hood</button>
+
+<script src="/sdk.js"></script>
+<script src="/agentpay-ui.js"></script>
+<script>
+// ======================= language (chat, payment, tracking) =======================
+let LANG = localStorage.getItem("agentpay_lang") || "en";
+const L = {
+  en: {
+    sub: (a) => `Orders & pays for you · delivering to ${a}`, title: "What are you craving?",
+    intro: "Tell me what you want — I'll find the nearest place, build the order and get it ready to pay.",
+    chips: ["2 small shawarmas from the nearest Marge without onion and peppers + a Coca-Cola Classic 0.5L", "Cappuccino and a club sandwich", "Order a pepperoni pizza"],
+    ph: "Message Wolt AI…", items: "Items", delivery: "Delivery", service: "Service fee", total: "Total", pay: "Pay", review: "Review in checkout",
+    safe: "🔒 Nothing is charged until you confirm.", change: "Change", replaced: "Replaced by the updated order below", paidRow: (a) => `✓ Paid ${a} · order placed`,
+    done: (v, a, b) => `Done! ${v} is preparing your order — arriving in about ${a}–${b} min.`, deliveryTo: (a) => `delivery to ${a}`, min: "min",
+    conn: "⚠ Connection problem. Please try again.",
+  },
+  ka: {
+    sub: (a) => `შეუკვეთავს და გადაიხდის თქვენთვის · მიტანა: ${a}`, title: "რას ისურვებდით?",
+    intro: "მითხარით, რა გსურთ — ვიპოვი უახლოეს ადგილს, შევადგენ შეკვეთას და მოვამზადებ გადასახდელად.",
+    chips: ["2 პატარა შაურმა უახლოესი მარჯიდან, ხახვის და წიწაკის გარეშე + 1 კოკა-კოლა კლასიკი 0.5ლ", "კაპუჩინო და კლაბ სენდვიჩი", "შემიკვეთე პეპერონი პიცა"],
+    ph: "მისწერეთ Wolt AI-ს…", items: "პროდუქტები", delivery: "მიტანა", service: "მომსახურების საფასური", total: "სულ", pay: "გადახდა", review: "შეკვეთის გადახედვა",
+    safe: "🔒 თანხა არ ჩამოიჭრება, სანამ არ დაადასტურებთ.", change: "შეცვლა", replaced: "ჩანაცვლდა ქვემოთ განახლებული შეკვეთით", paidRow: (a) => `✓ გადახდილია ${a} · შეკვეთა გაფორმდა`,
+    done: (v, a, b) => `მზადაა! ${v} უკვე ამზადებს თქვენს შეკვეთას — მოგიტანთ დაახლოებით ${a}–${b} წუთში.`, deliveryTo: (a) => `მიტანა: ${a}`, min: "წთ",
+    conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
+  },
+};
+const t = () => L[LANG];
+const ka = () => LANG === "ka";
+const lname = (l) => (ka() && l.nameKa) || l.name;
+const lopts = (l) => (ka() && l.optionsKa) || l.options;
+const vname = (v) => ka() ? `${v.nameKa || v.name} ${v.areaKa || v.area}` : `${v.name} ${v.area}`;
+const locShort = () => (ka() && S.data.location.labelKa ? S.data.location.labelKa : S.data.location.label).split(",")[0];
+function setLang(l) {
+  LANG = l; localStorage.setItem("agentpay_lang", l); AgentPayUI.lang = l;
+  if (S.chatOpen) { const keep = chatLogFrom(); closeChat(); chatLog = keep; openChat(); }
+}
+const chatLogFrom = () => [...$("#msgs").children].filter((e) => !e.classList.contains("welcome"));
+
+// ======================= state =======================
+const USER_ID = "user_123";
+const S = {
+  data: null, screen: "home", venueId: null,
+  cart: { venueId: null, lines: [] },    // lines: { itemId, qty, optionIds }
+  agentPayment: null, cartSignature: null, // cart came from the agent and is unchanged → reuse that payment
+  order: null, chatOpen: false, busy: false,
+};
+let agent;
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const money = (n) => "₾" + Number(n).toFixed(2);
+const venue = (id) => S.data.venues.find((v) => v.id === id);
+const item = (id) => S.data.catalog.find((i) => i.id === id);
+const km = (a, b) => { const R = 6371, r = Math.PI / 180, dLa = (b.lat - a.lat) * r, dLn = (b.lng - a.lng) * r;
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLn / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+const linePrice = (l) => { const it = item(l.itemId); return (it.price + (l.optionIds || []).reduce((s, o) => s + it.options.find((x) => x.id === o).price, 0)) * l.qty; };
+const cartCount = () => S.cart.lines.reduce((s, l) => s + l.qty, 0);
+const cartSubtotal = () => S.cart.lines.reduce((s, l) => s + linePrice(l), 0);
+const sig = () => JSON.stringify(S.cart);
+
+// ======================= icons =======================
+const I = {
+  pin: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>',
+  down: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 9 6 6 6-6"/></svg>',
+  back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  close: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  heart: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 21s-8-5.3-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.7-8 11-8 11Z"/></svg>',
+  share: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v13M7 8l5-5 5 5M5 14v6h14v-6"/></svg>',
+  search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  send: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>',
+  mic: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  smile: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 14a4.5 4.5 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>',
+  bike: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M5.5 17 9 9h6l3.5 8M9 9 7.5 6H5M15 9l-2.5 8"/></svg>',
+  clock: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  face: '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"><path d="M4 18V10a6 6 0 0 1 6-6h8M46 4h8a6 6 0 0 1 6 6v8M60 46v8a6 6 0 0 1-6 6h-8M18 60h-8a6 6 0 0 1-6-6v-8"/><path d="M22 24v5M42 24v5M32 24v12h-3M24 44c4.5 4 11.5 4 16 0"/></svg>',
+  check: '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26" stroke-width="3.5"/><path d="M20 33l8 8 16-17"/></svg>',
+  nav: {
+    Discovery: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z" fill="currentColor"/></svg>',
+    Restaurants: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 21V3c-2 1-3 4-3 8h3"/></svg>',
+    Stores: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 9h16l-1.5 11h-13zM8 9V7a4 4 0 0 1 8 0v2"/></svg>',
+    Search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+    Profile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  },
+};
+
+// ======================= render: shell =======================
+function render() {
+  const v = $("#view");
+  if (S.screen === "home") v.innerHTML = homeView();
+  if (S.screen === "venue") v.innerHTML = venueView();
+  if (S.screen === "checkout") v.innerHTML = checkoutView();
+  if (S.screen === "tracking") v.innerHTML = trackingView();
+  $("#nav").style.display = ["home"].includes(S.screen) ? "" : "none";
+  $("#fab").classList.toggle("hide", S.screen !== "home" && S.screen !== "venue");
+  $("#fab").style.bottom = S.screen === "home" ? "96px" : cartCount() ? "96px" : "26px";
+  renderCartBar();
+}
+function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render(); $("#view").scrollTop = 0; }
+
+function renderNav() {
+  $("#nav").innerHTML = Object.entries(I.nav).map(([k, svg], i) => `<button class="${i === 0 ? "on" : ""}">${svg}${k}</button>`).join("");
+}
+
+function renderCartBar() {
+  document.querySelectorAll(".cartbar").forEach((e) => e.remove());
+  if (S.screen !== "venue" && S.screen !== "home") return;
+  if (!cartCount() || (S.screen === "venue" && S.cart.venueId !== S.venueId)) return;
+  const bar = document.createElement("button");
+  bar.className = "cartbar";
+  if (S.screen === "home") bar.style.bottom = "96px", bar.style.right = "190px";
+  bar.innerHTML = `<span class="n">${cartCount()}</span>View order<span class="p">${money(cartSubtotal())}</span>`;
+  if (S.screen === "home") bar.innerHTML = `<span class="n">${cartCount()}</span>Order<span class="p"></span>`;
+  bar.onclick = () => go("checkout");
+  $("#screen").appendChild(bar);
+}
+
+// ======================= home =======================
+function venueCard(v) {
+  const d = km(S.data.location, v);
+  return `<button class="vcard" onclick="openVenue('${v.id}')">
+    <div class="vimg"><img src="${v.image}" alt=""><div class="eta">${v.etaMin}–${v.etaMax}<small>min</small></div></div>
+    <div class="vname">${esc(v.name)} ${v.name === "Marge" ? `<span style="color:var(--muted);font-weight:700">· ${esc(v.area)}</span>` : ""}</div>
+    <div class="vsub">${esc(v.cuisine)} · ${d.toFixed(1)} km</div>
+    <div class="vmeta"><span class="fee">${I.bike} ${money(v.deliveryFee)}</span>·<span>${I.smile} ${v.rating.toFixed(1)}</span></div>
+  </button>`;
+}
+function homeView() {
+  const near = [...S.data.venues].sort((a, b) => km(S.data.location, a) - km(S.data.location, b));
+  const cats = [["🌯", "Shawarma"], ["🍔", "Burgers"], ["🍕", "Pizza"], ["🥟", "Georgian"], ["🍣", "Sushi"], ["☕", "Coffee"], ["🛒", "Grocery"]];
+  return `
+  <div class="topbar">
+    <div class="loc">${I.pin}<span>${esc(S.data.location.label)}</span>${I.down}</div>
+    <div class="avatar">L</div>
+  </div>
+  <button class="search" onclick="openChat()">${I.search} Search in Wolt…<span class="ai">✦ Ask AI</span></button>
+  <button class="hero" onclick="openChat()">
+    <span class="spark">✦</span>
+    <h3>Just say what you're craving.</h3>
+    <p>Wolt AI finds it nearby, builds your order and checks out — in one message.</p>
+    <span class="cta">✦ Order with AI</span>
+  </button>
+  <div class="cats">${cats.map(([e, n]) => `<div class="cat"><div class="ic">${e}</div>${n}</div>`).join("")}</div>
+  <div class="sec"><h2>Popular right now</h2><a>See all</a></div>
+  <div class="carousel">${near.slice(0, 5).map(venueCard).join("")}</div>
+  <div class="sec"><h2>All restaurants</h2></div>
+  <div class="vlist">${near.map(venueCard).join("")}</div>`;
+}
+
+// ======================= venue =======================
+function openVenue(id) { go("venue", { venueId: id }); }
+function venueView() {
+  const v = venue(S.venueId);
+  const items = S.data.catalog.filter((i) => i.venueId === v.id);
+  const cats = [...new Set(items.map((i) => i.category))];
+  const qtyIn = (id) => S.cart.venueId === v.id ? S.cart.lines.filter((l) => l.itemId === id).reduce((s, l) => s + l.qty, 0) : 0;
+  return `
+  <div class="vhero"><img src="${v.image.replace("w=600", "w=800")}" alt="">
+    <div class="btns"><button class="circle" onclick="go('home')">${I.back}</button><span style="display:flex;gap:8px"><span class="circle">${I.heart}</span><span class="circle">${I.share}</span></span></div>
+  </div>
+  <div class="vhead">
+    <h1>${esc(v.name)} ${esc(v.area)}</h1>
+    <div class="sub">${esc(v.cuisine)} · Open until 23:00 · Min. order ${money(10)}</div>
+    <div class="chips">
+      <span class="chip blue">${I.clock} ${v.etaMin}–${v.etaMax} min</span>
+      <span class="chip">${I.bike} ${money(v.deliveryFee)}</span>
+      <span class="chip">${I.smile} ${v.rating.toFixed(1)}</span>
+      <span class="chip">${km(S.data.location, v).toFixed(1)} km</span>
+    </div>
+  </div>
+  <div class="tabs">${cats.map((c, i) => `<a class="${i === 0 ? "on" : ""}">${esc(c)}</a>`).join("")}</div>
+  <div class="menu" style="padding-bottom:110px">${cats.map((c) => `<h3>${esc(c)}</h3>` + items.filter((i) => i.category === c).map((i) => `
+    <button class="mi" onclick="openItem('${i.id}')">
+      <div class="t"><b>${qtyIn(i.id) ? `<span class="qbadge">${qtyIn(i.id)}×</span>` : ""}${esc(i.name)}</b><p>${esc(i.description)}</p><span class="price">${money(i.price)}</span></div>
+      ${i.image ? `<img src="${i.image}" alt="">` : ""}
+    </button>`).join("")).join("")}</div>`;
+}
+
+// ======================= item sheet =======================
+function openItem(id) {
+  const it = item(id);
+  const st = { qty: 1, opts: new Set() };
+  const scrim = document.createElement("div");
+  scrim.className = "scrim";
+  const groups = [...new Set((it.options || []).map((o) => o.group))];
+  const draw = () => {
+    const unit = it.price + [...st.opts].reduce((s, o) => s + it.options.find((x) => x.id === o).price, 0);
+    scrim.innerHTML = `<div class="sheet" onclick="event.stopPropagation()"><div class="body">
+      ${it.image ? `<img class="itemimg" src="${it.image.replace("w=300", "w=800")}" alt="">` : ""}
+      <div class="ihead"><h2>${esc(it.name)}</h2><span class="price">${money(it.price)}</span><p>${esc(it.description)}</p></div>
+      ${groups.map((g) => `<div class="og"><h4>${esc(g)}</h4><small>Optional</small>
+        ${it.options.filter((o) => o.group === g).map((o) => `<button class="opt ${st.opts.has(o.id) ? "on" : ""}" data-o="${o.id}"><span class="box"></span>${esc(o.name)}${o.price ? `<span class="x">+${money(o.price)}</span>` : ""}</button>`).join("")}</div>`).join("")}
+    </div>
+    <div class="sheetfoot"><div class="stepper"><button data-q="-1">−</button>${st.qty}<button data-q="1">+</button></div>
+      <button class="btn" id="addbtn">Add to order <span style="opacity:.85">${money(unit * st.qty)}</span></button></div></div>`;
+    scrim.querySelectorAll("[data-o]").forEach((b) => b.onclick = () => { st.opts.has(b.dataset.o) ? st.opts.delete(b.dataset.o) : st.opts.add(b.dataset.o); draw(); });
+    scrim.querySelectorAll("[data-q]").forEach((b) => b.onclick = () => { st.qty = Math.max(1, st.qty + +b.dataset.q); draw(); });
+    scrim.querySelector("#addbtn").onclick = () => { addToCart(it, st.qty, [...st.opts]); scrim.remove(); render(); };
+  };
+  scrim.onclick = () => scrim.remove();
+  draw();
+  $("#screen").appendChild(scrim);
+}
+function addToCart(it, qty, optionIds) {
+  if (S.cart.venueId && S.cart.venueId !== it.venueId) S.cart = { venueId: null, lines: [] };
+  S.cart.venueId = it.venueId;
+  const key = it.id + "|" + [...optionIds].sort().join(",");
+  const ex = S.cart.lines.find((l) => l.itemId + "|" + [...l.optionIds].sort().join(",") === key);
+  ex ? (ex.qty += qty) : S.cart.lines.push({ itemId: it.id, qty, optionIds });
+}
+
+// ======================= checkout =======================
+function checkoutView() {
+  const v = venue(S.cart.venueId);
+  if (!v) return `<div class="pagehead"><button onclick="go('home')">${I.back}</button><h1>Checkout</h1></div><p style="padding:16px">Your order is empty.</p>`;
+  const sub = cartSubtotal(), total = sub + v.deliveryFee + S.data.serviceFee;
+  return `
+  <div class="pagehead"><button onclick="go('venue',{venueId:'${v.id}'})">${I.back}</button><div><h1>${esc(v.name)} ${esc(v.area)}</h1><div class="vsub">Checkout</div></div></div>
+  <div class="seg"><div class="on">Delivery</div><div>Pickup</div></div>
+  <div class="block"><h3>Delivery details</h3>
+    <div class="row"><span class="ic">📍</span><div>${esc(S.data.location.label)}<small>Entrance 2, floor 5, apt 18</small></div><span class="chev">›</span></div>
+    <div class="row"><span class="ic">🕐</span><div>Standard · ${v.etaMin}–${v.etaMax} min<small>Leave at door · Call on arrival</small></div><span class="chev">›</span></div>
+  </div>
+  <div class="block"><h3>Order items</h3>
+    ${S.cart.lines.map((l) => { const it = item(l.itemId); return `<div class="line">${it.image ? `<img src="${it.image}" alt="">` : ""}<span class="q">${l.qty}×</span>
+      <div class="nm">${esc(it.name)}${l.optionIds.length ? `<div class="mods">${l.optionIds.map((o) => esc(it.options.find((x) => x.id === o).name)).join(", ")}</div>` : ""}</div><span class="pr">${money(linePrice(l))}</span></div>`; }).join("")}
+  </div>
+  <div class="block"><h3>Payment details</h3>
+    <div class="row"><span class="ic"><span class="visa">VISA</span></span><div>${esc(S.data.paymentMethod)}<small>Default card</small></div><span class="chev">›</span></div>
+  </div>
+  <div class="block"><h3>Summary</h3>
+    <div class="sum"><span>Item subtotal</span><span>${money(sub)}</span></div>
+    <div class="sum"><span>Delivery</span><span>${money(v.deliveryFee)}</span></div>
+    <div class="sum"><span>Service fee</span><span>${money(S.data.serviceFee)}</span></div>
+    <div class="sum total"><span>Total</span><span>${money(total)}</span></div>
+  </div>
+  <div style="padding:8px 16px 30px"><button class="btn" id="cobtn" onclick="checkoutPay()">Click to order <span style="opacity:.85">${money(total)}</span></button></div>`;
+}
+async function checkoutPay() {
+  $("#cobtn").disabled = true;
+  let intent = S.agentPayment && S.cartSignature === sig() ? S.agentPayment : null;
+  if (!intent) {
+    const r = await agent.createOrder(S.cart.lines.map((l) => ({ item_id: l.itemId, qty: l.qty, option_ids: l.optionIds })));
+    if (r.error) { toast(r.error); $("#cobtn").disabled = false; return; }
+    intent = r;
+  }
+  const p = await payWithFaceId(intent);
+  if (p) startTracking(p, false);
+  else $("#cobtn").disabled = false;
+}
+
+// ======================= payment: the real card-payment path, visualised =======================
+async function payWithFaceId(intent) {
+  const r = await AgentPayUI.pay({ root: $("#screen"), agent, payment: intent, accent: "#009de0", merchant: "Wolt" });
+  refreshHood();
+  return r;
+}
+
+// ======================= tracking =======================
+let trackRun;
+function startTracking(p, viaAgent) {
+  S.order = { p, viaAgent };
+  S.cart = { venueId: null, lines: [] };
+  S.agentPayment = null;
+  closeChat();
+  trackRun?.cancel();
+  go("tracking");
+  const v = vname(p.venue);
+  const items = p.lines.map((l) => `${l.qty}× ${lname(l)}${l.options.length ? ` (${lopts(l).join(", ").toLowerCase()})` : ""}`).join(" · ");
+  const dist = `${km(S.data.location, venue(p.venue.id)).toFixed(1)} ${ka() ? "კმ" : "km"}`;
+  const head = ka() ? [
+    ["შეკვეთა გაიგზავნა", `ველოდებით, როდის მიიღებს ${v}`, p.venue.etaMax],
+    ["შეკვეთა მიღებულია", `${v} იწყებს მომზადებას`, p.venue.etaMax - 2],
+    ["შეკვეთა მზადდება", `${v} ამზადებს თქვენს შეკვეთას`, p.venue.etaMax - 5],
+    ["კურიერი დაინიშნა", "გიორგი რესტორნისკენ მიემართება", p.venue.etaMax - 10],
+    ["გზაშია", "გიორგიმ აიღო შეკვეთა და თქვენკენ მოდის", 6],
+    ["მიტანილია", "გაამოთ! შეაფასეთ შეკვეთა", 0],
+  ] : [
+    ["Order sent", `Waiting for ${v} to accept`, p.venue.etaMax],
+    ["Order accepted", `${v} is about to start cooking`, p.venue.etaMax - 2],
+    ["Preparing your order", `${v} is preparing your food`, p.venue.etaMax - 5],
+    ["Courier assigned", "Giorgi is heading to the restaurant", p.venue.etaMax - 10],
+    ["On the way", "Giorgi picked up your order and is riding to you", 6],
+    ["Delivered", "Enjoy your meal! Rate your order", 0],
+  ];
+  trackRun = AgentPayUI.stages($("#wstages"), ka() ? [
+    { title: "შეკვეთა გაეგზავნა რესტორანს", detail: `გადახდილია ${money(p.total)} · ${v} ინფორმირებულია Wolt-ით`, ms: 2200 },
+    { title: "რესტორანმა მიიღო შეკვეთა", detail: `${v} დაადასტურა · მომზადება ~12 წთ`, ms: 2600 },
+    { title: "მზადდება", detail: items, ms: 4200 },
+    { title: "კურიერი დაინიშნა", detail: "გიორგი · სკუტერი · ★ 4.9 · რესტორნიდან 2 წუთში", ms: 2600 },
+    { title: "აიღო — გზაშია", detail: `${dist} — ${locShort()}`, ms: 8000 },
+    { title: "მიტანილია", detail: "გადმოგცათ კართან", ms: 600 },
+  ] : [
+    { title: "Order sent to restaurant", detail: `Paid ${money(p.total)} · ${v} notified via Wolt`, ms: 2200 },
+    { title: "Restaurant accepted", detail: `${v} confirmed · prep time ~12 min`, ms: 2600 },
+    { title: "Preparing your food", detail: items, ms: 4200 },
+    { title: "Courier assigned", detail: "Giorgi · scooter · ★ 4.9 · 2 min from the restaurant", ms: 2600 },
+    { title: "Picked up — on the way", detail: `${dist} to ${locShort()}`, ms: 8000 },
+    { title: "Delivered", detail: "Handed over at your door", ms: 600 },
+  ], {
+    accent: "#009de0",
+    onStage: (i) => {
+      if (S.screen !== "tracking") return;
+      const [t, sub, eta] = head[i];
+      $("#tbig").textContent = t;
+      $("#tsub").textContent = sub;
+      $("#teta").textContent = eta ? (ka() ? `მოვა ${eta}–${eta + 5} წუთში` : `Arriving in ${eta}–${eta + 5} min`) : ka() ? "ახლახან მოგიტანეთ" : "Delivered just now";
+      if (i === 4) { const c = $(".courier"); c.classList.remove("wait"); c.style.animation = "ride 8s linear forwards"; }
+    },
+  });
+}
+function trackingView() {
+  const { p, viaAgent } = S.order;
+  return `
+  <div class="map">
+    <svg viewBox="0 0 370 330" preserveAspectRatio="xMidYMid slice">
+      <rect width="370" height="330" fill="#e9eef1"/>
+      <g stroke="#fff" stroke-width="14" fill="none"><path d="M-10 90 L380 60"/><path d="M-10 230 L380 270"/><path d="M120 -10 L80 340"/><path d="M260 -10 L300 340"/><path d="M-10 160 L380 170"/></g>
+      <g fill="#d6e7d3"><rect x="140" y="190" width="70" height="40" rx="6"/><rect x="20" y="20" width="60" height="50" rx="6"/></g>
+      <path d="M 300 70 C 250 120, 230 150, 190 170 S 120 220, 90 260" stroke="#009de0" stroke-width="5" fill="none" stroke-linecap="round" stroke-dasharray="1 10"/>
+      <circle cx="300" cy="70" r="15" fill="#202125"/><text x="300" y="75" font-size="14" text-anchor="middle">🌯</text>
+      <circle cx="90" cy="260" r="15" fill="#009de0"/><text x="90" y="265" font-size="14" text-anchor="middle">🏠</text>
+    </svg>
+    <div class="courier wait">🛵</div>
+    <div style="position:absolute;top:10px;left:12px"><button class="circle" onclick="go('home')">${I.close}</button></div>
+  </div>
+  <div class="track">
+    <div class="big" id="tbig">${ka() ? "შეკვეთა გაიგზავნა" : "Order sent"}</div>
+    <div class="eta2" id="teta">${ka() ? `მოვა ${p.venue.etaMax}–${p.venue.etaMax + 5} წუთში` : `Arriving in ${p.venue.etaMax}–${p.venue.etaMax + 5} min`}</div>
+    <div class="vsub" id="tsub" style="margin:4px 0 16px">${ka() ? "ველოდებით რესტორნის დადასტურებას" : "Waiting for the restaurant to accept"}</div>
+    ${viaAgent ? `<div class="agentpaid">${ka() ? "✦ Wolt AI-მ შეუკვეთა და გადაიხადა ერთ საუბარში · თქვენ დაადასტურეთ Face ID-ით" : "✦ Ordered &amp; paid by Wolt AI in one conversation · you confirmed with Face ID"}</div>` : ""}
+    <div id="wstages" style="margin-bottom:8px"></div>
+    <div class="block" style="padding:0"><h3>Order ${esc(p.id.replace("pi_wolt_", "#W"))}</h3>
+      ${p.lines.map((l) => `<div class="line"><span class="q">${l.qty}×</span><div class="nm">${esc(lname(l))}${l.options.length ? `<div class="mods">${esc(lopts(l).join(", "))}</div>` : ""}</div><span class="pr">${money(l.qty * l.unitPrice)}</span></div>`).join("")}
+      <div class="sum total"><span>${ka() ? "გადახდილია" : "Paid with"} ${esc(p.paymentMethod)}</span><span>${money(p.total)}</span></div>
+    </div>
+  </div>`;
+}
+
+// ======================= AI chat =======================
+function openChat(prefill) {
+  if (S.chatOpen) return;
+  S.chatOpen = true;
+  const c = document.createElement("div");
+  c.className = "chat";
+  c.id = "chat";
+  c.innerHTML = `
+    <div class="chathead"><button onclick="closeChat()">${I.back}</button><div class="logo">✦</div>
+      <div style="flex:1;min-width:0"><b>Wolt AI</b><small><i></i>${esc(t().sub(locShort()))}</small></div>
+      <div class="langsw"><button class="${LANG === "en" ? "on" : ""}" onclick="setLang('en')">EN</button><button class="${LANG === "ka" ? "on" : ""}" onclick="setLang('ka')">ქარ</button></div></div>
+    <div class="msgs" id="msgs">
+      <div class="welcome"><div class="logo">✦</div><h2>${esc(t().title)}</h2><p>${esc(t().intro)}</p>
+        <div class="sugg">${t().chips.map((c) => `<button>${esc(c)}</button>`).join("")}</div></div>
+    </div>
+    <form class="composer" id="composer"><button type="button" class="mic" id="mic">${I.mic}</button><input id="q" placeholder="${esc(t().ph)}" autocomplete="off" /><button class="send">${I.send}</button></form>`;
+  $("#screen").appendChild(c);
+  c.querySelectorAll(".sugg button").forEach((b) => b.onclick = () => send(b.textContent));
+  $("#composer").onsubmit = (e) => { e.preventDefault(); send($("#q").value); };
+  setupMic();
+  if (chatLog.length) { $(".welcome").remove(); chatLog.forEach((el) => $("#msgs").appendChild(el)); scrollChat(); }
+  if (prefill) $("#q").value = prefill;
+  setTimeout(() => $("#q")?.focus(), 250);
+}
+function closeChat() {
+  const c = $("#chat");
+  if (c) { chatLog = chatLogFrom(); c.remove(); }
+  S.chatOpen = false;
+}
+let chatLog = [];
+const scrollChat = () => { const m = $("#msgs"); if (m) m.scrollTop = m.scrollHeight; };
+function bubble(cls, text) { const b = document.createElement("div"); b.className = "b " + cls; b.textContent = text; $("#msgs").appendChild(b); scrollChat(); return b; }
+
+async function send(text) {
+  text = text.trim();
+  if (!text || S.busy) return;
+  S.busy = true;
+  if (/[\u10A0-\u10FF]/.test(text) !== ka()) { LANG = ka() ? "en" : "ka"; localStorage.setItem("agentpay_lang", LANG); AgentPayUI.lang = LANG; }
+  $("#q").value = "";
+  $(".welcome")?.remove();
+  bubble("me", text);
+  const tb = AgentPayUI.thinking($("#msgs"), { accent: "#009de0", onUpdate: scrollChat });
+  const replyHolder = document.createElement("div");
+  replyHolder.style.display = "contents";
+  $("#msgs").appendChild(replyHolder);
+  hoodClear(text);
+  await agent.send(text, (e) => {
+    hoodEvent(e);
+    if (e.type === "status") tb.status(e.text);
+    if (e.type === "thinking") tb.thought(e.text);
+    if (e.type === "tool") tb.step(e.label, !e.result?.error);
+    if (e.type === "payment") tb.settled().then(() => orderCard(e.payment));
+    if (e.type === "reply" && e.text) tb.settled().then(() => { const b = document.createElement("div"); b.className = "b ai"; b.textContent = e.text; replyHolder.appendChild(b); scrollChat(); });
+    if (e.type === "error") tb.settled().then(() => bubble("ai", "⚠ " + e.text));
+    if (e.type === "done") tb.done();
+  }).catch(() => { tb.done(); bubble("ai", t().conn); });
+  await tb.settled();
+  S.busy = false;
+  refreshHood();
+}
+
+function orderCard(p) {
+  // Mirror the agent's proposal into the app's own cart, so "View order" / checkout show it too.
+  S.cart = { venueId: p.venue.id, lines: p.lines.map((l) => ({ itemId: l.itemId, qty: l.qty, optionIds: l.options.map((n) => item(l.itemId).options.find((o) => o.name === n).id) })) };
+  S.agentPayment = p;
+  S.cartSignature = sig();
+  document.querySelectorAll(".ocard:not(.paid) .acts").forEach((a) => a.innerHTML = `<div class="note">${esc(t().replaced)}</div>`);
+
+  const v = venue(p.venue.id);
+  const card = document.createElement("div");
+  card.className = "ocard";
+  card.innerHTML = `
+    <div class="vh"><img src="${p.venue.image}" alt=""><div><b>${esc(vname(p.venue))}</b><small>${km(S.data.location, v).toFixed(1)} ${ka() ? "კმ" : "km"} · ${p.venue.etaMin}–${p.venue.etaMax} ${t().min} · ${esc(t().deliveryTo(locShort()))}</small></div></div>
+    <div class="ls">${p.lines.map((l) => `<div class="line">${l.image ? `<img src="${l.image}" alt="">` : ""}<span class="q">${l.qty}×</span><div class="nm">${esc(lname(l))}${l.options.length ? `<div class="mods">${esc(lopts(l).join(", "))}</div>` : ""}${l.note ? `<div class="mods">“${esc(l.note)}”</div>` : ""}</div><span class="pr">${money(l.qty * l.unitPrice)}</span></div>`).join("")}</div>
+    <div class="sums">
+      <div class="sum"><span>${t().items}</span><span>${money(p.subtotal)}</span></div>
+      <div class="sum"><span>${t().delivery}</span><span>${money(p.deliveryFee)}</span></div>
+      <div class="sum"><span>${t().service}</span><span>${money(p.serviceFee)}</span></div>
+      <div class="sum total"><span>${t().total}</span><span>${money(p.total)}</span></div>
+    </div>
+    <div class="pm"><span class="visa">VISA</span>${esc(p.paymentMethod)}<span style="margin-left:auto;color:var(--blue)">${t().change}</span></div>
+    <div class="acts">
+      <button class="btn pay">${t().pay} ${money(p.total)}</button>
+      <button class="btn sec2 edit">${t().review}</button>
+      <div class="note">${t().safe}</div>
+    </div>`;
+  card.querySelector(".pay").onclick = async (ev) => {
+    ev.target.disabled = true;
+    const paid = await payWithFaceId(p);
+    if (!paid) { ev.target.disabled = false; return; }
+    card.classList.add("paid");
+    card.querySelector(".acts").innerHTML = `<div class="paidrow">${esc(t().paidRow(money(paid.total)))}</div>`;
+    bubble("ai", t().done(vname(p.venue), p.venue.etaMin, p.venue.etaMax));
+    setTimeout(() => startTracking(paid, true), 1400);
+  };
+  card.querySelector(".edit").onclick = () => { closeChat(); go("checkout"); };
+  $("#msgs").appendChild(card);
+  scrollChat();
+}
+
+function setupMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const mic = $("#mic");
+  if (!SR) { mic.style.display = "none"; return; }
+  let rec;
+  mic.onclick = () => {
+    if (rec) { rec.stop(); return; }
+    rec = new SR(); rec.lang = ka() ? "ka-GE" : "en-US"; rec.interimResults = true;
+    mic.classList.add("rec");
+    rec.onresult = (e) => { $("#q").value = [...e.results].map((r) => r[0].transcript).join(""); };
+    rec.onend = () => { mic.classList.remove("rec"); rec = null; if ($("#q").value.trim()) send($("#q").value); };
+    rec.start();
+  };
+}
+
+function toast(t) { const d = document.createElement("div"); d.className = "toast"; d.textContent = t; $("#screen").appendChild(d); setTimeout(() => d.remove(), 3200); }
+
+// ======================= under the hood =======================
+function hoodClear(text) { $("#hood-trace").innerHTML = `<div class="ev st">user_123 → <b>${esc(text)}</b></div>`; }
+function hoodEvent(e) {
+  const t = $("#hood-trace");
+  const div = document.createElement("div");
+  if (e.type === "status") { div.className = "ev st"; div.textContent = "⋯ Gemini: " + e.text; }
+  else if (e.type === "tool") { div.className = "ev"; div.innerHTML = `<b>${esc(e.tool)}</b>(${esc(JSON.stringify(e.args))})\n→ ${esc(JSON.stringify(e.result).slice(0, 420))}`; }
+  else if (e.type === "thinking") { div.className = "ev st"; div.style.color = "#a9c7dc"; div.textContent = "💭 " + e.text; }
+  else if (e.type === "payment") { div.className = "ev pay"; div.innerHTML = `<b>payment intent</b> ${esc(e.payment.id)} · ${money(e.payment.total)} · <span class="s-await">awaiting_user_confirmation</span>`; }
+  else if (e.type === "reply") { div.className = "ev st"; div.textContent = "reply: " + e.text; }
+  else if (e.type === "error") { div.className = "ev"; div.style.borderColor = "#f04"; div.textContent = "error: " + e.text; }
+  else return;
+  t.appendChild(div);
+  t.parentElement.scrollTop = t.parentElement.scrollHeight;
+}
+async function refreshHood() {
+  const s = await fetch("/debug/wolt").then((r) => r.json());
+  $("#hood-agent").innerHTML = `${s.mode === "gemini" ? `Gemini <b style="color:#fff">${esc(s.model)}</b>` : `<b style="color:#ffc24b">MOCK</b> (no GEMINI_API_KEY)`} · function calling · per-tenant memory`;
+  const u = Object.entries(s.memory);
+  $("#hood-mem").innerHTML = u.length ? u.map(([id, m]) => `<div><b style="color:#fff">${esc(id)}</b> · ${m.history.length} messages<br>${m.preferences.map((p) => `<span class="tag">${esc(p)}</span>`).join("") || '<span style="color:#7a8a9a">no saved preferences</span>'}</div>`).join("") : '<span style="color:#7a8a9a">empty</span>';
+  $("#hood-pay").innerHTML = s.payments.length ? s.payments.slice(-4).reverse().map((p) => `<div style="margin-bottom:6px">${esc(p.id)} · ${money(p.total)} · ${p.history.map((h) => `<span class="s-${h.status.split("_")[0]}">${h.status}</span><span style="color:#7a8a9a">(${h.by})</span>`).join(" → ")}</div>`).join("") : '<span style="color:#7a8a9a">none</span>';
+}
+$("#reset").onclick = async () => { await fetch("/debug/wolt/reset", { method: "POST" }); location.reload(); };
+$("#hoodtoggle").onclick = () => { $("#hood").classList.toggle("off"); $("#hoodtoggle").textContent = $("#hood").classList.contains("off") ? "Show under the hood" : "Hide under the hood"; };
+
+// ======================= boot =======================
+(async () => {
+  S.data = await fetch("/demo-data/wolt").then((r) => r.json());
+  agent = AgentPay.init({ key: "pk_wolt_demo", userId: USER_ID, location: S.data.location });
+  AgentPayUI.lang = LANG;
+  $("#fab").onclick = () => openChat();
+  renderNav();
+  render();
+  refreshHood();
+  if (new URLSearchParams(location.search).has("clean")) { $("#hood").classList.add("off"); $("#hoodtoggle").textContent = "Show under the hood"; }
+})();
+</script>
+</body>
+</html>

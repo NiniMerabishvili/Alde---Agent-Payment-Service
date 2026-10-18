@@ -1,0 +1,962 @@
+<!doctype html>
+<!-- PROTOTYPE — throwaway investor demo. A Wizz Air look-alike host app with the AgentPay agent built in via /sdk.js.
+     TEST CASE: "book a seat on Oct 21 and return on 27 Oct"  (→ KUT ⇄ BER round trip, Wed 21 Oct / Tue 27 Oct 2026, ₾918.00)
+     Also: "Book a one-way flight from Kutaisi to Budapest this Friday with a 20kg checked bag"
+     Everything Wizz-specific (search, results, bags, passenger, boarding pass) is "the client's app"; the agent + payments come from our API. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Wizz Air — AI booking demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --pink: #c6007e; --pink-dark: #a30068; --pink-08: rgba(198,0,126,.08); --pink-16: rgba(198,0,126,.16);
+    --navy: #06038d; --navy-deep: #050243; --navy-08: rgba(6,3,141,.07);
+    --text: #06038d; --body: #1b1a3a; --muted: rgba(27,26,58,.6); --faint: rgba(27,26,58,.38); --line: rgba(6,3,141,.1);
+    --surface: #f2f2f6; --green: #0fa968; --radius: 14px;
+    font-family: Quicksand, -apple-system, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: #e9e8f3; color: var(--body); min-height: 100vh; display: flex; justify-content: center; align-items: center; gap: 40px; padding: 24px; font-weight: 600; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  img { display: block; }
+  b, h1, h2, h3, h4 { font-weight: 700; }
+
+  /* ---------- phone frame ---------- */
+  .phone { width: 390px; height: 844px; border-radius: 54px; background: #111; padding: 11px; box-shadow: 0 30px 80px rgba(6,3,141,.25); flex-shrink: 0; position: relative; }
+  .screen { width: 100%; height: 100%; border-radius: 44px; overflow: hidden; background: #fff; position: relative; display: flex; flex-direction: column; }
+  .island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 120px; height: 34px; background: #111; border-radius: 20px; z-index: 100; }
+  .statusbar { height: 50px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 30px 6px 34px; font-family: -apple-system, system-ui, sans-serif; font-weight: 700; font-size: 15px; flex-shrink: 0; z-index: 40; background: var(--navy); color: #fff; transition: background .2s; }
+  .statusbar.light { background: #fff; color: #000; }
+  .statusbar svg * { fill: currentColor; }
+  .statusbar svg rect[fill="none"] { fill: none; stroke: currentColor; }
+  @media (max-width: 520px) {
+    body { padding: 0; background: #fff; display: block; }
+    .phone { width: 100vw; height: 100dvh; border-radius: 0; padding: 0; box-shadow: none; }
+    .screen { border-radius: 0; }
+    .island, .statusbar, .hood { display: none !important; }
+    .chat { top: 0 !important; }
+  }
+  .view { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; scrollbar-width: none; }
+  .view::-webkit-scrollbar { display: none; }
+
+  /* ---------- logo ---------- */
+  .wlogo { font-family: Nunito, sans-serif; font-weight: 900; font-style: italic; font-size: 30px; letter-spacing: -1.5px; color: #fff; line-height: 1; display: inline-flex; align-items: baseline; }
+  .wlogo i { color: var(--pink); font-style: italic; }
+  .wlogo small { font-size: 11px; font-style: normal; letter-spacing: .5px; margin-left: 6px; font-family: Quicksand; font-weight: 700; opacity: .8; }
+
+  /* ---------- home ---------- */
+  .hhead { background: linear-gradient(180deg, var(--navy) 0%, #0b078f 70%, #1a0f99 100%); color: #fff; padding: 6px 18px 70px; position: relative; overflow: hidden; }
+  .hhead::after { content: ""; position: absolute; right: -60px; top: 20px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(198,0,126,.55), rgba(198,0,126,0) 70%); }
+  .hhead .top { display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 1; }
+  .hhead .bell { width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,.12); display: grid; place-items: center; }
+  .hhead h1 { font-size: 24px; margin-top: 18px; position: relative; z-index: 1; line-height: 1.2; }
+  .hhead p { opacity: .8; font-size: 14px; margin-top: 4px; position: relative; z-index: 1; }
+  .sform { margin: -54px 14px 16px; background: #fff; border-radius: 18px; box-shadow: 0 10px 30px rgba(6,3,141,.16); padding: 14px; position: relative; z-index: 2; }
+  .seg { display: flex; background: var(--surface); border-radius: 99px; padding: 4px; margin-bottom: 12px; }
+  .seg button { flex: 1; text-align: center; padding: 8px; border-radius: 99px; font-weight: 700; font-size: 13.5px; color: var(--muted); }
+  .seg .on { background: var(--navy); color: #fff; }
+  .fld { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 12px; width: 100%; text-align: left; margin-bottom: 8px; position: relative; }
+  .fld .ic { color: var(--pink); flex-shrink: 0; display: grid; place-items: center; }
+  .fld small { display: block; font-size: 11.5px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  .fld b { font-size: 16px; color: var(--navy); }
+  .fld .code { margin-left: auto; font-weight: 700; color: var(--faint); font-size: 14px; }
+  .fld .near { font-size: 10.5px; background: var(--pink-08); color: var(--pink); padding: 2px 7px; border-radius: 99px; margin-left: 6px; font-weight: 700; vertical-align: 2px; }
+  .swap { position: absolute; right: 26px; top: 108px; width: 34px; height: 34px; border-radius: 50%; background: #fff; border: 1.5px solid var(--line); display: grid; place-items: center; color: var(--navy); z-index: 3; }
+  .frow { display: flex; gap: 8px; }
+  .frow .fld { flex: 1; }
+  .btn { background: var(--pink); color: #fff; border-radius: 99px; padding: 15px 16px; font-weight: 700; font-size: 16px; flex: 1; display: flex; justify-content: center; gap: 8px; width: 100%; box-shadow: 0 6px 16px rgba(198,0,126,.28); }
+  .btn:disabled { opacity: .5; }
+  .btn.sec2 { background: var(--pink-08); color: var(--pink); box-shadow: none; }
+  .btn.navy { background: var(--navy); box-shadow: none; }
+  .aibanner { margin: 0 14px 20px; border-radius: 16px; padding: 16px; color: #fff; background: linear-gradient(120deg, #c6007e 0%, #7a0a8f 55%, #06038d 100%); position: relative; overflow: hidden; display: block; width: calc(100% - 28px); text-align: left; }
+  .aibanner h3 { font-size: 18px; line-height: 1.2; margin-bottom: 4px; max-width: 250px; }
+  .aibanner p { font-size: 13px; opacity: .92; max-width: 245px; }
+  .aibanner .cta { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; background: #fff; color: var(--pink); padding: 7px 13px; border-radius: 99px; font-weight: 700; font-size: 13px; }
+  .aibanner .spark { position: absolute; right: 10px; top: 4px; font-size: 80px; opacity: .2; }
+  .sec { display: flex; justify-content: space-between; align-items: baseline; padding: 0 16px 10px; }
+  .sec h2 { font-size: 19px; color: var(--navy); }
+  .sec a { color: var(--pink); font-weight: 700; font-size: 13.5px; }
+  .carousel { display: flex; gap: 12px; overflow-x: auto; padding: 0 16px 22px; scrollbar-width: none; }
+  .dcard { width: 170px; flex-shrink: 0; text-align: left; border-radius: 14px; overflow: hidden; background: #fff; box-shadow: 0 3px 12px rgba(6,3,141,.1); }
+  .dimg { height: 110px; background: linear-gradient(135deg, #06038d, #c6007e); position: relative; display: grid; place-items: center; color: #fff; font-size: 34px; font-family: Nunito; font-weight: 900; }
+  .dimg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .dcard .t { padding: 8px 10px 10px; }
+  .dcard b { color: var(--navy); font-size: 15px; display: block; }
+  .dcard small { color: var(--muted); font-size: 12px; display: block; }
+  .dcard .from { color: var(--pink); font-weight: 700; font-size: 14px; margin-top: 4px; }
+  .airports { padding: 0 16px 120px; display: flex; flex-direction: column; gap: 8px; }
+  .aprow { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: var(--surface); text-align: left; width: 100%; }
+  .aprow .code { width: 48px; height: 48px; border-radius: 12px; background: var(--navy); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+  .aprow b { color: var(--navy); display: block; }
+  .aprow small { color: var(--muted); font-size: 12.5px; }
+  .aprow .km { margin-left: auto; white-space: nowrap; color: var(--pink); font-weight: 700; font-size: 13px; }
+
+  /* ---------- nav + fab ---------- */
+  .nav { display: flex; justify-content: space-around; border-top: 1px solid var(--line); background: #fff; padding: 8px 0 22px; flex-shrink: 0; }
+  .nav button { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--faint); width: 76px; }
+  .nav button.on { color: var(--pink); }
+  .nav svg { width: 24px; height: 24px; }
+  .fab { position: absolute; right: 16px; bottom: 96px; z-index: 20; background: var(--pink); color: #fff; border-radius: 99px; padding: 13px 18px 13px 15px; font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 22px rgba(198,0,126,.45); }
+  .fab.hide { display: none; }
+
+  /* ---------- results ---------- */
+  .rhead { background: var(--navy); color: #fff; padding: 4px 14px 14px; position: sticky; top: 0; z-index: 5; }
+  .rhead .r1 { display: flex; align-items: center; gap: 10px; }
+  .rhead .route { font-size: 19px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .rhead .sub { font-size: 12.5px; opacity: .75; margin-left: 34px; }
+  .circle { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.12); display: grid; place-items: center; color: #fff; }
+  .circle.l { background: #fff; color: var(--navy); box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+  .days { display: flex; gap: 6px; overflow-x: auto; padding: 12px 14px; scrollbar-width: none; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 66px; z-index: 4; }
+  .day { flex-shrink: 0; width: 64px; padding: 8px 4px; border-radius: 12px; text-align: center; border: 1.5px solid var(--line); }
+  .day small { display: block; font-size: 11px; color: var(--muted); }
+  .day b { display: block; font-size: 14px; color: var(--navy); }
+  .day span { font-size: 11.5px; color: var(--pink); font-weight: 700; }
+  .day.none span { color: var(--faint); }
+  .day.on { background: var(--navy); border-color: var(--navy); }
+  .day.on small, .day.on b, .day.on span { color: #fff; }
+  .flist { padding: 14px 14px 120px; display: flex; flex-direction: column; gap: 12px; }
+  .fcard { border-radius: 16px; background: #fff; box-shadow: 0 3px 14px rgba(6,3,141,.1); border: 1.5px solid transparent; text-align: left; width: 100%; overflow: hidden; }
+  .fcard.sel { border-color: var(--pink); }
+  .fcard .ft { display: flex; align-items: center; padding: 14px 14px 10px; gap: 8px; }
+  .fcard .tm { font-size: 22px; font-weight: 700; color: var(--navy); line-height: 1; }
+  .fcard .ap { font-size: 12px; color: var(--muted); font-weight: 700; margin-top: 3px; }
+  .fcard .mid { flex: 1; text-align: center; font-size: 11.5px; color: var(--muted); }
+  .fcard .mid .ln { height: 2px; background: var(--line); margin: 5px 4px; position: relative; }
+  .fcard .mid .ln::after { content: "✈"; position: absolute; left: 50%; top: -9px; transform: translateX(-50%); color: var(--pink); background: #fff; padding: 0 4px; font-size: 13px; }
+  .fcard .fb { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface); font-size: 12.5px; color: var(--muted); }
+  .fcard .pr { color: var(--pink); font-weight: 700; font-size: 19px; }
+  .fcard .pr small { font-size: 11px; color: var(--muted); font-weight: 600; display: block; text-align: right; }
+  .left { color: #d14; font-weight: 700; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 20px; }
+
+  /* ---------- sheets ---------- */
+  .scrim { position: absolute; inset: 0; background: rgba(5,2,67,.45); z-index: 60; display: flex; align-items: flex-end; animation: fade .2s; }
+  .sheet { background: #fff; width: 100%; border-radius: 22px 22px 0 0; max-height: 90%; display: flex; flex-direction: column; animation: up .25s ease-out; }
+  .sheet .body { overflow-y: auto; flex: 1; scrollbar-width: none; padding-bottom: 6px; }
+  .grab { width: 40px; height: 5px; border-radius: 5px; background: var(--line); margin: 8px auto 4px; }
+  @keyframes up { from { transform: translateY(40%); opacity: .4; } }
+  @keyframes fade { from { opacity: 0; } }
+  .shead { padding: 8px 16px 6px; }
+  .shead h2 { font-size: 20px; color: var(--navy); }
+  .shead p { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .bundles { display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto; scrollbar-width: none; }
+  .bundle { flex: 1; min-width: 104px; border: 1.5px solid var(--line); border-radius: 14px; padding: 10px; text-align: left; }
+  .bundle b { color: var(--navy); font-size: 14px; display: block; }
+  .bundle small { color: var(--muted); font-size: 11px; display: block; line-height: 1.35; margin: 4px 0 6px; }
+  .bundle span { color: var(--pink); font-weight: 700; font-size: 13.5px; }
+  .bundle.on { border-color: var(--pink); background: var(--pink-08); }
+  .og { padding: 4px 16px 6px; }
+  .og h4 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 10px 0 2px; }
+  .opt { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1.5px solid var(--line); border-radius: 12px; margin-bottom: 8px; font-weight: 700; font-size: 14.5px; width: 100%; text-align: left; color: var(--navy); }
+  .opt .oi { font-size: 22px; width: 30px; text-align: center; }
+  .opt small { display: block; color: var(--muted); font-size: 12px; font-weight: 600; }
+  .box { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--faint); display: grid; place-items: center; flex-shrink: 0; margin-left: auto; }
+  .opt.on { border-color: var(--pink); background: var(--pink-08); }
+  .opt.on .box { background: var(--pink); border-color: var(--pink); }
+  .opt.on .box::after { content: ""; width: 10px; height: 6px; border: 2.5px solid #fff; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px,-1px); }
+  .opt .x { color: var(--pink); font-size: 14px; white-space: nowrap; }
+  .sheetfoot { display: flex; gap: 12px; padding: 12px 16px 26px; border-top: 1px solid var(--line); align-items: center; }
+  .stepper { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 99px; padding: 6px 12px; font-weight: 700; font-size: 16px; color: var(--navy); }
+  .stepper button { color: var(--pink); font-size: 22px; width: 22px; line-height: 1; }
+  .pick { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--line); width: 100%; text-align: left; }
+  .pick b { color: var(--navy); }
+  .pick small { color: var(--muted); font-size: 12.5px; display: block; }
+  .pick .code { margin-left: auto; font-weight: 700; color: var(--pink); }
+
+  /* ---------- checkout ---------- */
+  .pagehead { display: flex; align-items: center; gap: 12px; padding: 6px 14px 14px; position: sticky; top: 0; background: var(--navy); color: #fff; z-index: 5; }
+  .pagehead h1 { font-size: 18px; }
+  .pagehead .vsub { font-size: 12.5px; opacity: .75; }
+  .progress { display: flex; gap: 4px; padding: 12px 16px 4px; }
+  .progress i { flex: 1; height: 4px; border-radius: 4px; background: var(--line); }
+  .progress i.done { background: var(--pink); }
+  .block { padding: 14px 16px 4px; }
+  .block h3 { font-size: 17px; margin-bottom: 10px; color: var(--navy); }
+  .row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border-radius: 12px; font-weight: 700; font-size: 14.5px; margin-bottom: 8px; color: var(--navy); }
+  .row .ic { width: 36px; height: 36px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-size: 17px; flex-shrink: 0; }
+  .row small { display: block; color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  .row .chev { margin-left: auto; color: var(--faint); }
+  .line { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: flex-start; }
+  .line img, .line .ph { width: 52px; height: 42px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+  .line .ph { background: linear-gradient(135deg, #06038d, #c6007e); display: grid; place-items: center; color: #fff; font-size: 16px; }
+  .line .q { color: var(--pink); font-weight: 700; min-width: 22px; }
+  .line .nm { flex: 1; font-weight: 700; font-size: 14px; color: var(--navy); }
+  .line .mods { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+  .line .pr { font-weight: 700; font-size: 14px; color: var(--navy); white-space: nowrap; }
+  .sum { display: flex; justify-content: space-between; font-weight: 600; color: var(--muted); font-size: 14px; padding: 3px 0; }
+  .sum.total { color: var(--navy); font-weight: 700; font-size: 17px; padding-top: 8px; }
+  .mc { width: 30px; height: 20px; border-radius: 4px; background: #1b1a3a; position: relative; flex-shrink: 0; display: inline-block; }
+  .mc::before, .mc::after { content: ""; position: absolute; top: 4px; width: 12px; height: 12px; border-radius: 50%; }
+  .mc::before { left: 5px; background: #eb001b; } .mc::after { left: 12px; background: rgba(247,158,27,.9); }
+
+  /* ---------- boarding pass ---------- */
+  .confirm { background: linear-gradient(180deg, var(--navy) 0, var(--navy) 230px, var(--surface) 230px); min-height: 100%; padding: 6px 16px 40px; }
+  .confirm .ok { color: #fff; text-align: center; padding: 6px 0 16px; }
+  .confirm .ok .tick { width: 54px; height: 54px; border-radius: 50%; background: var(--pink); display: grid; place-items: center; margin: 0 auto 8px; }
+  .confirm .ok h1 { font-size: 21px; }
+  .confirm .ok p { opacity: .8; font-size: 13px; }
+  .bp { background: #fff; border-radius: 18px; box-shadow: 0 10px 30px rgba(6,3,141,.18); overflow: hidden; }
+  .bp .bh { background: var(--pink); color: #fff; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .bp .bh .wlogo { font-size: 22px; }
+  .bp .bh .wlogo i { color: #fff; opacity: .8; }
+  .bp .rt { display: flex; justify-content: space-between; align-items: center; padding: 16px 16px 6px; }
+  .bp .rt .c { font-size: 32px; font-weight: 700; color: var(--navy); line-height: 1; }
+  .bp .rt small { color: var(--muted); font-size: 12px; display: block; }
+  .bp .rt .pl { color: var(--pink); font-size: 22px; }
+  .bp .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; padding: 10px 16px 14px; }
+  .bp .grid small { display: block; color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; }
+  .bp .grid b { color: var(--navy); font-size: 14.5px; }
+  .bp .tear { border-top: 2px dashed var(--line); margin: 0 14px; position: relative; }
+  .bp .tear::before, .bp .tear::after { content: ""; position: absolute; top: -12px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); }
+  .bp .tear::before { left: -26px; } .bp .tear::after { right: -26px; }
+  .bp .qr { display: flex; gap: 14px; align-items: center; padding: 16px; }
+  .bp .qr svg { width: 118px; height: 118px; flex-shrink: 0; }
+  .bp .qr small { color: var(--muted); font-size: 12px; display: block; }
+  .bp .qr b { color: var(--navy); }
+  .agentpaid { display: flex; gap: 10px; align-items: center; background: var(--pink-08); border-radius: 12px; padding: 12px 14px; font-weight: 700; font-size: 13px; color: var(--pink-dark); margin: 14px 0; }
+
+  /* ---------- issuing (fulfilment) ---------- */
+  .ihero { background: linear-gradient(180deg, var(--navy), #1a0f99); color: #fff; padding: 2px 14px 14px; border-radius: 0 0 24px 24px; position: sticky; top: 0; z-index: 5; box-shadow: 0 6px 18px rgba(6,3,141,.18); }
+  .ihero .r1 { display: flex; justify-content: space-between; align-items: center; }
+  .iart { position: relative; width: 360px; height: 150px; margin: -14px auto -6px; }
+  .iart svg { position: absolute; inset: 0; }
+  .iplane { position: absolute; left: 0; top: 0; offset-distance: 0%; offset-rotate: auto; color: #fff; font-size: 22px; line-height: 1; width: 22px; height: 22px; margin: -11px 0 0 -11px; text-shadow: 0 0 12px rgba(198,0,126,.9); animation: bob 1.4s ease-in-out infinite; }
+  .iplane.fly { animation: flyroute 9s cubic-bezier(.45,.05,.55,.95) forwards; }
+  @keyframes flyroute { to { offset-distance: 100%; } }
+  @keyframes bob { 50% { transform: translateY(-2px); } }
+  .ibig { font-size: 22px; font-weight: 700; text-align: center; margin-top: 2px; }
+  .isub { font-size: 13px; opacity: .8; text-align: center; margin-top: 2px; min-height: 18px; }
+  .ipnrrow { display: flex; justify-content: center; gap: 8px; align-items: baseline; margin-top: 10px; font-size: 12px; opacity: .9; }
+  .ipnrrow b { font-size: 18px; letter-spacing: .14em; background: rgba(255,255,255,.12); padding: 3px 10px; border-radius: 8px; }
+  #istages .apui-st small { white-space: pre-line; }
+  .bpmini { flex: 1; border-radius: 12px; border: 1.5px dashed var(--line); padding: 10px; opacity: .45; transition: all .4s; }
+  .bpmini b { color: var(--navy); display: block; font-size: 14px; }
+  .bpmini small { color: var(--muted); font-size: 11.5px; }
+  .bpmini.on { opacity: 1; border-style: solid; border-color: var(--pink); background: var(--pink-08); transform: translateY(-2px); }
+
+  /* ---------- AI chat ---------- */
+  .langsw { display: flex; background: var(--surface); border-radius: 99px; padding: 3px; flex-shrink: 0; }
+  .langsw button { padding: 5px 9px; border-radius: 99px; font-weight: 700; font-size: 12px; color: var(--muted); }
+  .langsw button.on { background: #fff; color: var(--pink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .chat { position: absolute; inset: 50px 0 0 0; background: #fff; z-index: 55; display: flex; flex-direction: column; animation: up .25s ease-out; }
+  .chathead { display: flex; align-items: center; gap: 10px; padding: 8px 14px 12px; border-bottom: 1px solid var(--line); }
+  .chathead .logo { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, #c6007e, #06038d); color: #fff; display: grid; place-items: center; font-size: 19px; }
+  .chathead b { font-size: 16px; display: block; color: var(--navy); }
+  .chathead small { color: var(--muted); font-weight: 600; font-size: 12px; display: flex; align-items: center; gap: 5px; }
+  .chathead small i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; }
+  .msgs { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; scrollbar-width: none; }
+  .b { max-width: 82%; padding: 10px 14px; border-radius: 18px; font-size: 14.5px; font-weight: 600; line-height: 1.4; white-space: pre-wrap; }
+  .b.me { align-self: flex-end; background: var(--pink); color: #fff; border-bottom-right-radius: 6px; }
+  .b.ai { align-self: flex-start; background: var(--surface); border-bottom-left-radius: 6px; color: var(--body); }
+  .welcome { text-align: center; padding: 18px 8px 8px; }
+  .welcome .logo { width: 60px; height: 60px; border-radius: 18px; margin: 0 auto 12px; background: linear-gradient(135deg, #c6007e, #06038d); color: #fff; display: grid; place-items: center; font-size: 30px; }
+  .welcome h2 { font-size: 21px; color: var(--navy); }
+  .welcome p { color: var(--muted); font-size: 13.5px; margin-top: 4px; }
+  .sugg { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+  .sugg button { background: var(--pink-08); color: var(--pink-dark); padding: 11px 14px; border-radius: 12px; font-weight: 700; font-size: 13.5px; text-align: left; }
+  .steps { align-self: flex-start; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--muted); padding: 2px 4px; max-width: 94%; }
+  .step { display: flex; gap: 8px; align-items: flex-start; animation: fade .3s; }
+  .step .d { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; margin-top: 1px; display: grid; place-items: center; font-size: 10px; }
+  .step.ok .d { background: var(--pink); color: #fff; }
+  .step.err .d { background: #f04; color: #fff; }
+  .step.run .d { border: 2px solid var(--pink-16); border-top-color: var(--pink); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ocard { align-self: stretch; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(6,3,141,.08); animation: up .3s ease-out; flex-shrink: 0; }
+  .ocard .vh { background: var(--navy); color: #fff; padding: 12px 14px; }
+  .ocard .vh .rt { display: flex; align-items: center; justify-content: space-between; }
+  .ocard .vh .c { font-size: 24px; font-weight: 700; line-height: 1; }
+  .ocard .vh .c small { display: block; font-size: 11px; opacity: .75; font-weight: 600; margin-top: 3px; }
+  .ocard .vh .mid { flex: 1; text-align: center; font-size: 11px; opacity: .8; }
+  .ocard .vh .mid .ln { height: 1.5px; background: rgba(255,255,255,.3); margin: 4px 10px; }
+  .ocard .vh .meta { font-size: 12px; opacity: .85; margin-top: 8px; display: flex; justify-content: space-between; }
+  .ocard .ls { padding: 4px 14px; }
+  .ocard .sums { padding: 8px 14px; border-top: 1px solid var(--line); }
+  .ocard .sum { font-size: 13px; padding: 2px 0; }
+  .ocard .sum.total { font-size: 16px; }
+  .ocard .pm { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); font-weight: 700; font-size: 14px; color: var(--navy); }
+  .ocard .acts { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .ocard .note { font-size: 11.5px; color: var(--muted); text-align: center; }
+  .ocard.paid { border-color: var(--green); }
+  .paidrow { display: flex; align-items: center; gap: 8px; color: var(--green); font-weight: 700; justify-content: center; padding: 6px 0; }
+  .composer { display: flex; gap: 8px; align-items: center; padding: 10px 12px 26px; border-top: 1px solid var(--line); }
+  .composer input { flex: 1; background: var(--surface); border: 0; border-radius: 99px; padding: 13px 16px; font: inherit; font-size: 15px; font-weight: 600; outline: none; color: var(--body); }
+  .composer .send { width: 44px; height: 44px; border-radius: 50%; background: var(--pink); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+  .composer .mic { width: 44px; height: 44px; border-radius: 50%; background: var(--surface); color: var(--pink); display: grid; place-items: center; flex-shrink: 0; }
+  .composer .mic.rec { background: #f04; color: #fff; }
+
+  /* ---------- Face ID ---------- */
+  .faceid { position: absolute; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(0,0,0,.25); animation: fade .15s; }
+  .faceid div { width: 150px; height: 150px; border-radius: 30px; background: rgba(30,30,30,.82); backdrop-filter: blur(10px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #fff; font-weight: 700; font-size: 14px; font-family: -apple-system, system-ui, sans-serif; }
+  .faceid svg { width: 64px; height: 64px; }
+  .toast { position: absolute; top: 60px; left: 16px; right: 16px; z-index: 95; background: var(--navy); color: #fff; padding: 12px 14px; border-radius: 12px; font-weight: 700; font-size: 14px; animation: up .25s; }
+
+  /* ---------- under the hood (desktop only) ---------- */
+  .hood { width: 440px; height: 844px; background: #0f1720; color: #cfe3f1; border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; font-weight: 400; box-shadow: 0 30px 80px rgba(0,0,0,.2); }
+  .hood.off { display: none; }
+  .hood h2 { font-family: Nunito, sans-serif; font-size: 18px; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .hood h2 small { margin-left: auto; font-size: 11px; color: #7fb7d8; font-weight: 700; }
+  .hood h4 { font-family: Nunito, sans-serif; color: #7fb7d8; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; margin-bottom: 6px; }
+  .hood .pane { background: #16212d; border-radius: 12px; padding: 12px; overflow: auto; }
+  .hood .trace { flex: 1; }
+  .hood .ev { border-left: 2px solid #c6007e; padding: 2px 0 2px 8px; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
+  .hood .ev b { color: #fff; }
+  .hood .ev.pay { border-color: #1fc16b; }
+  .hood .ev.st { border-color: #3a4a5a; color: #7a8a9a; }
+  .hood .tag { display: inline-block; background: #22303f; padding: 1px 6px; border-radius: 4px; margin: 2px 4px 2px 0; }
+  .hood .s-await { color: #ffc24b; } .hood .s-captured { color: #1fc16b; } .hood .s-cancelled { color: #ff6b6b; }
+  .hood .reset { margin-left: 8px; background: #22303f; color: #cfe3f1; padding: 4px 10px; border-radius: 6px; font-family: Nunito, sans-serif; font-weight: 800; font-size: 11px; }
+  .hoodtoggle { position: fixed; right: 16px; bottom: 16px; background: #0f1720; color: #fff; padding: 8px 12px; border-radius: 8px; font-weight: 800; font-size: 12px; z-index: 200; }
+  @media (max-width: 960px) { .hood, .hoodtoggle { display: none !important; } }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="island"></div>
+    <div class="screen" id="screen">
+      <div class="statusbar" id="statusbar"><span>9:41</span><span class="icons" style="display:flex;gap:6px;align-items:center">
+        <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2.5c2.3 0 4.4.9 6 2.4l1.2-1.3A10.4 10.4 0 0 0 8 .7 10.4 10.4 0 0 0 .8 3.6L2 4.9a8.6 8.6 0 0 1 6-2.4Zm0 3.6c1.3 0 2.5.5 3.4 1.3l1.2-1.3A6.6 6.6 0 0 0 8 4.3a6.6 6.6 0 0 0-4.6 1.8l1.2 1.3c.9-.8 2.1-1.3 3.4-1.3Zm0 3.6c.4 0 .8.2 1.1.4L8 11.3 6.9 10.1c.3-.2.7-.4 1.1-.4Z"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" opacity=".5"/><rect x="2" y="2" width="18" height="9" rx="2"/><rect x="25" y="4.5" width="1.5" height="4" rx=".75" opacity=".5"/></svg>
+      </span></div>
+      <div class="view" id="view"></div>
+      <button class="fab" id="fab">✦ Book with AI</button>
+      <nav class="nav" id="nav"></nav>
+    </div>
+  </div>
+
+  <aside class="hood" id="hood">
+    <h2>✦ Under the hood <small>AgentPay · tenant: wizzair</small></h2>
+    <div class="pane"><h4>Agent</h4><div id="hood-agent">…</div></div>
+    <div class="pane trace"><h4>Live agent trace</h4><div id="hood-trace"><span style="color:#7a8a9a">Waiting for a message…</span></div></div>
+    <div class="pane"><h4>Wizz Air tenant memory (isolated) <button class="reset" id="reset">Reset demo</button></h4><div id="hood-mem"></div></div>
+    <div class="pane"><h4>Payments (state machine)</h4><div id="hood-pay"></div></div>
+  </aside>
+  <button class="hoodtoggle" id="hoodtoggle">Hide under the hood</button>
+
+<script src="/sdk.js"></script>
+<script src="/agentpay-ui.js"></script>
+<script>
+// ======================= state =======================
+const USER_ID = "user_123";
+const TENANT = "wizzair";
+const PAX = "Luka Gelashvili"; // mock passenger on the account
+const S = {
+  data: null, screen: "home",
+  search: { from: null, to: "BUD", date: null, pax: 1, trip: "oneway" },
+  cart: { venueId: null, lines: [] },    // lines: { itemId, qty, optionIds }
+  agentPayment: null, cartSignature: null,
+  order: null, chatOpen: false, busy: false,
+};
+let agent;
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const money = (n) => "₾" + Number(n).toFixed(2);
+const venue = (id) => S.data.venues.find((v) => v.id === id);
+const item = (id) => S.data.catalog.find((i) => i.id === id);
+const km = (a, b) => { const R = 6371, r = Math.PI / 180, dLa = (b.lat - a.lat) * r, dLn = (b.lng - a.lng) * r;
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLn / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+const linePrice = (l) => { const it = item(l.itemId); return (it.price + (l.optionIds || []).reduce((s, o) => s + it.options.find((x) => x.id === o).price, 0)) * l.qty; };
+const cartCount = () => S.cart.lines.reduce((s, l) => s + l.qty, 0);
+const cartSubtotal = () => S.cart.lines.reduce((s, l) => s + linePrice(l), 0);
+const sig = () => JSON.stringify(S.cart);
+const apByCode = (c) => S.data.venues.find((v) => v.meta.code === c);
+const dur = (m) => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+const oneWays = () => S.data.catalog.filter((i) => !i.meta.roundTrip);
+const roundTrips = () => S.data.catalog.filter((i) => i.meta.roundTrip);
+const addMin = (hhmm, d) => { const [h, m] = hhmm.split(":").map(Number); const t = (((h * 60 + m + d) % 1440) + 1440) % 1440; return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
+const legs = (m) => m.roundTrip ? [{ ...m, label: "Outbound" }, { ...m.ret, label: "Return" }] : [{ ...m, label: "" }];
+
+// ======================= language (EN | ქარ) for the AI flow =======================
+let LANG = localStorage.getItem("agentpay_lang") || "en";
+const ka = () => LANG === "ka";
+const MKA = ["იანვარი", "თებერვალი", "მარტი", "აპრილი", "მაისი", "ივნისი", "ივლისი", "აგვისტო", "სექტემბერი", "ოქტომბერი", "ნოემბერი", "დეკემბერი"];
+const DKA = ["კვ", "ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ"];
+const fd = (iso) => { if (!ka()) return fmtDate(iso); const d = new Date(iso + "T12:00"); return `${DKA[d.getDay()]}, ${d.getDate()} ${MKA[d.getMonth()]}`; };
+const fdShort = (iso) => { if (!ka()) return fmtDate(iso); const d = new Date(iso + "T12:00"); return `${DKA[d.getDay()]}, ${d.getDate()} ${MKA[d.getMonth()].slice(0, 3)}`; };
+const fdur = (m) => ka() ? `${Math.floor(m / 60)}სთ ${String(m % 60).padStart(2, "0")}წთ` : dur(m);
+const cFrom = (g) => (ka() && g.fromCityKa) || g.fromCity;
+const cTo = (g) => (ka() && g.toCityKa) || g.toCity;
+const inCity = (c) => (c.endsWith("ი") ? c.slice(0, -1) : c) + "ში"; // ბერლინი → ბერლინში
+const legLabel = (g) => !g.label ? "" : ka() ? (g.label === "Outbound" ? "გასვლა" : "დაბრუნება") : g.label;
+const paxName = () => ka() ? "ლუკა გელაშვილი" : PAX;
+const paxShort = () => ka() ? "ლუკა გ." : "Luka G.";
+const lname = (l) => (ka() && l.nameKa) || l.name;
+const lopts = (l) => (ka() && l.optionsKa) || l.options;
+const T = {
+  en: {
+    sub: (a) => `Books & pays for you · nearest airport ${a}`, title: "Where do you want to fly?",
+    intro: "Tell me the trip — I'll pick the flight from your nearest airport, add bags and get it ready to pay.",
+    chips: ["book a seat on Oct 21 and return on 27 Oct", "Book a one-way flight from Kutaisi to Budapest this Friday with a 20kg checked bag", "Book 2 tickets from Tbilisi to Larnaca with seat selection"],
+    ph: "Message WIZZ AI…", direct: "Direct", nearest: (a, k) => `Nearest airport ${a} · ${k} km`,
+    fare: (rt) => rt ? "Return fare · 2 flights" : "One-way fare", adult: (n) => n > 1 ? "Adults" : "Adult", basic: "Basic · small personal item",
+    extras: "Flight & extras", admin: "Administration fee", included: "Included", total: "Total", pay: "Pay", review: "Review booking",
+    safe: "🔒 Nothing is charged until you confirm.", change: "Change", replaced: "Replaced by the updated booking below", paidRow: (a) => `✓ Paid ${a} · booking confirmed`,
+    done: (m) => m.roundTrip ? `Done! You're booked: ${m.flightNo} to ${cTo(m)} on ${fd(m.date)} at ${m.dep}, back on ${m.ret.flightNo} on ${fd(m.ret.date)} at ${m.ret.dep}. Both boarding passes are ready.` : `Done! You're booked on ${m.flightNo} to ${cTo(m)}, ${fd(m.date)} at ${m.dep}. Your boarding pass is ready.`,
+    conn: "⚠ Connection problem. Please try again.",
+    // fulfilment
+    code: "Booking code", agentpaid: "✦ Booked &amp; paid by WIZZ AI in one conversation · you confirmed with Face ID", seat: "seat",
+    head: (x) => [
+      ["Holding your fare", `${x.total} re-priced with Wizz Air inventory`], ["Payment received", `${x.total} captured · ${x.pm}`],
+      ["Booking created", `Confirmation code ${x.pnr}`], ["Issuing e-tickets", x.flights], ["Assigning seats", x.seatsTxt],
+      ["Checking you in", x.open ? "Online check-in is open for these flights" : "Online check-in opens 30 days before departure"],
+      ["Boarding passes ready", `${x.n} boarding pass${x.n > 1 ? "es" : ""} generated`], ["All set!", "Sent to your email and Apple Wallet"]],
+    stages: (x) => [
+      { title: "Fare re-priced & held", detail: `${x.name} · ${x.total} confirmed, seat held for 10 min`, ms: 2200 },
+      { title: "Payment captured", detail: `${x.total} · ${x.pm} · auth ✓ · settled to Wizz Air Hungary Ltd.`, ms: 1700 },
+      { title: `Booking created · PNR ${x.pnr}`, detail: `${x.qty} adult · ${paxName()} · ${x.route}`, ms: 2400 },
+      { title: `E-ticket${x.n > 1 ? "s" : ""} issued`, detail: x.L.map((g, k) => `${g.flightNo} ${g.from}→${g.to} ${fd(g.date)} · tkt ${x.tkt[k]}`).join("\n"), ms: 2800 },
+      { title: "Seats assigned", detail: x.L.map((g, k) => `${x.seats[k]} on ${g.flightNo}${x.chosen ? " (your choice)" : " (free allocation)"}`).join(" · "), ms: 2400 },
+      x.open ? { title: "Online check-in done", detail: `Passport •••• 7713 sent as APIS data · checked in on ${x.L.map((g) => g.flightNo).join(" & ")}`, ms: 2600 }
+             : { title: "Online check-in scheduled", detail: "Opens 30 days before · we'll check you in automatically", ms: 2600 },
+      { title: `${x.n} boarding pass${x.n > 1 ? "es" : ""} generated`, detail: x.L.map((g) => `${g.flightNo} · boarding ${addMin(g.dep, -30)} · gate closes ${addMin(g.dep, -15)}`).join(" · "), ms: 2300 },
+      { title: "Sent to email + Wallet", detail: "Itinerary & boarding passes → l•••@gmail.com · added to Apple Wallet", ms: 1800 }],
+    // boarding passes
+    going: (c) => `You're going to ${c}!`, confirmed: (ret, pnr) => `${ret ? `Return ${ret} · ` : ""}Booking confirmed · code <b style="color:#fff;letter-spacing:.08em">${pnr}</b>`,
+    bp: (lbl) => `${lbl ? lbl.toUpperCase() + " · " : ""}BOARDING PASS`, passenger: "Passenger", flight: "Flight", date: "Date", boarding: "Boarding",
+    seatL: "Seat", bag: "Checked bag", gate: "Gate closes", group: "Group", prio: (p) => p ? "Priority" : "Non-priority", paxL: "Passengers",
+    adults: (n) => `${n} adult${n > 1 ? "s" : ""}`, paid: "Paid", wallet: " Add to Apple Wallet", walletToast: "Added to Apple Wallet",
+  },
+  ka: {
+    sub: (a) => `დაჯავშნის და გადაიხდის თქვენ მაგივრად · უახლოესი აეროპორტი: ${a}`, title: "სად გსურთ გაფრენა?",
+    intro: "მითხარით, სად და როდის მიფრინავთ — უახლოესი აეროპორტიდან შევარჩევ ფრენას, დავამატებ ბარგს და მოვამზადებ გადასახდელად.",
+    chips: ["დამიჯავშნე ადგილი 21 ოქტომბერს და დაბრუნება 27 ოქტომბერს", "დამიჯავშნე ფრენა ქუთაისიდან ბუდაპეშტში ამ პარასკევს 20კგ ჩასაბარებელი ბარგით", "დამიჯავშნე 2 ბილეთი თბილისიდან ლარნაკაში ადგილის არჩევით"],
+    ph: "მისწერეთ WIZZ AI-ს…", direct: "პირდაპირი", nearest: (a, k) => `უახლოესი აეროპორტი ${a} · ${k} კმ`,
+    fare: (rt) => rt ? "ორმხრივი ბილეთი · 2 ფრენა" : "ცალმხრივი ბილეთი", adult: (n) => n > 1 ? "მგზავრი" : "მგზავრი", basic: "Basic · მცირე პირადი ჩანთა",
+    extras: "ფრენა და დამატებები", admin: "ადმინისტრაციული მოსაკრებელი", included: "შედის ფასში", total: "სულ", pay: "გადახდა", review: "ჯავშნის გადახედვა",
+    safe: "🔒 თანხა არ ჩამოიჭრება, სანამ არ დაადასტურებთ.", change: "შეცვლა", replaced: "ჩანაცვლდა ქვემოთ განახლებული ჯავშნით", paidRow: (a) => `✓ გადახდილია ${a} · ჯავშანი დადასტურებულია`,
+    done: (m) => m.roundTrip ? `მზადაა! დაგიჯავშნეთ ${m.flightNo} — ${inCity(cTo(m))} ${fd(m.date)}, ${m.dep}-ზე და დაბრუნება ${m.ret.flightNo} — ${fd(m.ret.date)}, ${m.ret.dep}-ზე. ორივე ბორდინგ-ბარათი მზადაა.` : `მზადაა! დაგიჯავშნეთ ${m.flightNo} — ${inCity(cTo(m))} ${fd(m.date)}, ${m.dep}-ზე. ბორდინგ-ბარათი მზადაა.`,
+    conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
+    code: "ჯავშნის კოდი", agentpaid: "✦ დაჯავშნა და გადაიხადა WIZZ AI-მ ერთ საუბარში · თქვენ დაადასტურეთ Face ID-ით", seat: "ადგილი",
+    head: (x) => [
+      ["ტარიფს ვაფიქსირებთ", `${x.total} — ფასი გადამოწმდა Wizz Air-ის სისტემაში`], ["გადახდა მიღებულია", `${x.total} ჩამოიჭრა · ${x.pm}`],
+      ["ჯავშანი შეიქმნა", `ჯავშნის კოდი ${x.pnr}`], ["ელ. ბილეთების გაცემა", x.flights], ["ადგილების მინიჭება", x.seatsTxt],
+      ["ონლაინ რეგისტრაცია", x.open ? "ამ ფრენებზე ონლაინ რეგისტრაცია ღიაა" : "ონლაინ რეგისტრაცია იხსნება გაფრენამდე 30 დღით ადრე"],
+      ["ბორდინგ-ბარათები მზადაა", `შეიქმნა ${x.n} ბორდინგ-ბარათი`], ["ყველაფერი მზადაა!", "გაიგზავნა ელფოსტაზე და Apple Wallet-ში"]],
+    stages: (x) => [
+      { title: "ტარიფი გადამოწმდა და დაიბლოკა", detail: `${x.name} · ${x.total} დადასტურდა, ადგილი დაცულია 10 წუთით`, ms: 2200 },
+      { title: "გადახდა ჩამოიჭრა", detail: `${x.total} · ${x.pm} · ავტორიზაცია ✓ · ჩაირიცხა Wizz Air Hungary Ltd.-ის ანგარიშზე`, ms: 1700 },
+      { title: `ჯავშანი შეიქმნა · PNR ${x.pnr}`, detail: `${x.qty} მგზავრი · ${paxName()} · ${x.route}`, ms: 2400 },
+      { title: x.n > 1 ? "ელ. ბილეთები გაიცა" : "ელ. ბილეთი გაიცა", detail: x.L.map((g, k) => `${g.flightNo} ${g.from}→${g.to} ${fd(g.date)} · ბილეთი ${x.tkt[k]}`).join("\n"), ms: 2800 },
+      { title: "ადგილები მიენიჭა", detail: x.L.map((g, k) => `${x.seats[k]} — ${g.flightNo}${x.chosen ? " (თქვენი არჩევანი)" : " (უფასო განაწილებით)"}`).join(" · "), ms: 2400 },
+      x.open ? { title: "ონლაინ რეგისტრაცია დასრულდა", detail: `პასპორტი •••• 7713 გადაეცა APIS მონაცემებად · დარეგისტრირებული ხართ ${x.L.map((g) => g.flightNo).join(" და ")} რეისებზე`, ms: 2600 }
+             : { title: "ონლაინ რეგისტრაცია დაგეგმილია", detail: "იხსნება გაფრენამდე 30 დღით ადრე · ავტომატურად დაგარეგისტრირებთ", ms: 2600 },
+      { title: `შეიქმნა ${x.n} ბორდინგ-ბარათი`, detail: x.L.map((g) => `${g.flightNo} · ჩასხდომა ${addMin(g.dep, -30)} · გეითი იხურება ${addMin(g.dep, -15)}`).join(" · "), ms: 2300 },
+      { title: "გაიგზავნა ელფოსტაზე და Wallet-ში", detail: "მარშრუტი და ბორდინგ-ბარათები → l•••@gmail.com · დაემატა Apple Wallet-ს", ms: 1800 }],
+    going: (c) => `მიფრინავთ ${inCity(c)}!`, confirmed: (ret, pnr) => `${ret ? `დაბრუნება ${ret} · ` : ""}ჯავშანი დადასტურებულია · კოდი <b style="color:#fff;letter-spacing:.08em">${pnr}</b>`,
+    bp: (lbl) => `${lbl ? lbl + " · " : ""}ბორდინგ-ბარათი`, passenger: "მგზავრი", flight: "რეისი", date: "თარიღი", boarding: "ჩასხდომა",
+    seatL: "ადგილი", bag: "ბარგი", gate: "გეითი იხურება", group: "ჯგუფი", prio: (p) => p ? "პრიორიტეტული" : "არაპრიორიტეტული", paxL: "მგზავრები",
+    adults: (n) => `${n} ზრდასრული`, paid: "გადახდილია", wallet: " დამატება Apple Wallet-ში", walletToast: "დაემატა Apple Wallet-ს",
+  },
+};
+const t = () => T[LANG];
+function setLang(l) {
+  LANG = l; localStorage.setItem("agentpay_lang", l); AgentPayUI.lang = l;
+  if (S.chatOpen) { const keep = [...$("#msgs").children].filter((e) => !e.classList.contains("welcome")); closeChat(); chatLog = keep; openChat(); }
+  if (S.screen === "issuing" || S.screen === "confirm") render();
+}
+const dests = () => { const m = new Map(); oneWays().forEach((i) => { const k = i.meta.to; const e = m.get(k) || { code: k, city: i.meta.toCity, image: i.image, min: Infinity, froms: new Set() }; e.min = Math.min(e.min, i.price); e.froms.add(i.meta.from); m.set(k, e); }); return [...m.values()]; };
+const nearest = () => [...S.data.venues].sort((a, b) => km(S.data.location, a) - km(S.data.location, b));
+const OPT_ICON = { priority: "🧳", bag20: "🛄", seat: "💺", flex: "🔁", desk: "🎫" };
+const OPT_SUB = { priority: "Priority boarding + 10kg trolley in cabin", bag20: "Drop at the bag desk · 1 per passenger", seat: "Choose any standard seat", flex: "Change date/route without a change fee", desk: "Required if you don't check in online" };
+const fmtDate = (iso) => { const d = new Date(iso + "T12:00"); return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }); };
+
+// ======================= icons =======================
+const I = {
+  pin: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2.5 19h19M5 13.5l3.5 1 9-6c1.2-.8 2.8-.4 3 .4.2.7-.3 1.4-1 1.8L8 17l-4.5-2.5L2 11l2-.5z"/></svg>',
+  land: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2.5 20h19M4 6l1.5-.5 3.5 4 9 3c1.4.5 2.2 1.6 1.7 2.3-.4.6-1.5.7-2.5.4L4 11.5z"/></svg>',
+  cal: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+  user: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  swap: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/></svg>',
+  bell: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></svg>',
+  back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  close: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  send: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>',
+  mic: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  face: '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"><path d="M4 18V10a6 6 0 0 1 6-6h8M46 4h8a6 6 0 0 1 6 6v8M60 46v8a6 6 0 0 1-6 6h-8M18 60h-8a6 6 0 0 1-6-6v-8"/><path d="M22 24v5M42 24v5M32 24v12h-3M24 44c4.5 4 11.5 4 16 0"/></svg>',
+  check: '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26" stroke-width="3.5"/><path d="M20 33l8 8 16-17"/></svg>',
+  tick: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  nav: {
+    Home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/></svg>',
+    "My trips": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="4" y="7" width="16" height="13" rx="2.5"/><path d="M9 7V4.5h6V7M4 12h16"/></svg>',
+    "Check-in": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 6h16v4a2 2 0 0 0 0 4v4H4v-4a2 2 0 0 0 0-4z"/><path d="M14 6v12" stroke-dasharray="2 2"/></svg>',
+    Deals: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></svg>',
+    Profile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  },
+};
+const logo = (sub = "") => `<span class="wlogo">wizz<i>air</i>${sub ? `<small>${sub}</small>` : ""}</span>`;
+
+// ======================= render: shell =======================
+function render() {
+  const v = $("#view");
+  if (S.screen === "home") v.innerHTML = homeView();
+  if (S.screen === "results") v.innerHTML = resultsView();
+  if (S.screen === "checkout") v.innerHTML = checkoutView();
+  if (S.screen === "confirm") v.innerHTML = confirmView();
+  if (S.screen === "issuing") v.innerHTML = issuingView();
+  $("#nav").style.display = S.screen === "home" ? "" : "none";
+  $("#fab").classList.toggle("hide", S.screen !== "home" && S.screen !== "results");
+  $("#fab").style.bottom = S.screen === "home" ? "96px" : "26px";
+}
+function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render(); $("#view").scrollTop = 0; }
+function renderNav() { $("#nav").innerHTML = Object.entries(I.nav).map(([k, svg], i) => `<button class="${i === 0 ? "on" : ""}">${svg}${k}</button>`).join(""); }
+
+// ======================= home =======================
+function homeView() {
+  const s = S.search, from = apByCode(s.from), to = dests().find((d) => d.code === s.to);
+  const near = nearest()[0];
+  const fromDests = dests().filter((d) => d.froms.has(s.from)).map((d) => ({ ...d, min: Math.min(...oneWays().filter((i) => i.meta.from === s.from && i.meta.to === d.code).map((i) => i.price)) }));
+  return `
+  <div class="hhead">
+    <div class="top">${logo()}<span class="bell">${I.bell}</span></div>
+    <h1>Where to next, Luka?</h1>
+    <p>Low fares from Kutaisi, Tbilisi &amp; Batumi</p>
+  </div>
+  <div class="sform">
+    <div class="seg"><button class="${s.trip === "oneway" ? "on" : ""}" onclick="S.search.trip='oneway';render()">One-way</button><button class="${s.trip === "return" ? "on" : ""}" onclick="S.search.trip='return';render()">Return</button></div>
+    <button class="fld" onclick="pickFrom()"><span class="ic">${I.pin}</span><div><small>From</small><b>${esc(from.name)}</b>${from.id === near.id ? `<span class="near">Nearest · ${km(S.data.location, from).toFixed(0)} km</span>` : ""}</div><span class="code">${from.meta.code}</span></button>
+    <button class="fld" onclick="pickTo()"><span class="ic">${I.land}</span><div><small>To</small><b>${esc(to ? to.city : "Anywhere")}</b></div><span class="code">${to ? to.code : ""}</span></button>
+    <button class="swap" onclick="toast('Return flights to Georgia are coming soon in this demo')">${I.swap}</button>
+    <div class="frow">
+      <button class="fld" onclick="pickDate()"><span class="ic">${I.cal}</span><div><small>Departure</small><b>${s.date ? fmtDate(s.date) : "Any date"}</b></div></button>
+      <button class="fld" onclick="pickPax()"><span class="ic">${I.user}</span><div><small>Passengers</small><b>${s.pax} adult${s.pax > 1 ? "s" : ""}</b></div></button>
+    </div>
+    <button class="btn" style="margin-top:4px" onclick="doSearch()">Search flights</button>
+  </div>
+  <button class="aibanner" onclick="openChat()">
+    <span class="spark">✦</span>
+    <h3>Just say where you want to fly.</h3>
+    <p>WIZZ AI finds the flight from your nearest airport, adds bags and books it — in one message.</p>
+    <span class="cta">✦ Book with AI</span>
+  </button>
+  ${roundTrips().filter((i) => i.meta.from === s.from).length ? `<div class="sec"><h2>Round trips from ${esc(from.name)}</h2></div>
+  <div style="padding:0 14px 20px;display:flex;flex-direction:column;gap:10px">${roundTrips().filter((i) => i.meta.from === s.from).map(rtCard).join("")}</div>` : ""}
+  <div class="sec"><h2>Cheap flights from ${esc(from.name)}</h2><a>See all</a></div>
+  <div class="carousel">${fromDests.sort((a, b) => (!!b.image - !!a.image) || a.min - b.min).map((d) => `
+    <button class="dcard" onclick="S.search.to='${d.code}';S.search.date=null;doSearch()">
+      <div class="dimg">${d.image ? `<img src="${d.image.replace("w=300&h=186", "w=400&h=260")}" alt="">` : d.code}</div>
+      <div class="t"><b>${esc(d.city)}</b><small>${from.meta.code} → ${d.code} · one-way</small><div class="from">from ${money(d.min)}</div></div>
+    </button>`).join("")}</div>
+  <div class="sec"><h2>Airports near you</h2></div>
+  <div class="airports">${nearest().map((v) => `
+    <button class="aprow" onclick="S.search.from='${v.meta.code}';render()"><span class="code">${v.meta.code}</span><div><b>${esc(v.name)}</b><small>${esc(v.meta.airport)}</small></div><span class="km">${km(S.data.location, v).toFixed(0)} km</span></button>`).join("")}</div>`;
+}
+function legRow(g) {
+  return `<div class="ft"><div><div class="tm">${g.dep}</div><div class="ap">${g.from}</div></div>
+      <div class="mid">${g.label ? `<b style="color:var(--pink)">${g.label}</b> · ` : ""}${esc(fmtDate(g.date))}<div class="ln"></div>${dur(g.durationMin)} · ${esc(g.flightNo)}</div>
+      <div style="text-align:right"><div class="tm">${g.arr}</div><div class="ap">${g.to}</div></div></div>`;
+}
+function rtCard(i) {
+  const m = i.meta;
+  return `<button class="fcard" onclick="openFare('${i.id}')">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 14px 0">${i.image ? `<img src="${i.image}" style="width:44px;height:44px;border-radius:10px;object-fit:cover">` : ""}<div><b style="color:var(--navy);font-size:15px">${esc(m.fromCity)} ⇄ ${esc(m.toCity)}</b><div style="font-size:12px;color:var(--muted)">Return · ${esc(fmtDate(m.date))} – ${esc(fmtDate(m.ret.date))}</div></div></div>
+    ${legs(m).map(legRow).join("")}
+    <div class="fb"><span>Round trip · 1 adult · <span class="left">${m.seatsLeft} seats left</span></span><span class="pr">${money(i.price)}<small>both flights</small></span></div>
+  </button>`;
+}
+function sheet(html, after) {
+  const scrim = document.createElement("div");
+  scrim.className = "scrim";
+  scrim.innerHTML = `<div class="sheet" onclick="event.stopPropagation()"><div class="grab"></div>${html}</div>`;
+  scrim.onclick = () => scrim.remove();
+  $("#screen").appendChild(scrim);
+  after?.(scrim);
+  return scrim;
+}
+function pickFrom() {
+  const sc = sheet(`<div class="shead"><h2>Flying from</h2><p>Sorted by distance from ${esc(S.data.location.label)}</p></div><div class="body">${nearest().map((v) => `<button class="pick" data-c="${v.meta.code}"><div><b>${esc(v.name)}</b><small>${esc(v.meta.airport)} · ${km(S.data.location, v).toFixed(0)} km</small></div><span class="code">${v.meta.code}</span></button>`).join("")}</div>`);
+  sc.querySelectorAll("[data-c]").forEach((b) => b.onclick = () => { S.search.from = b.dataset.c; if (!dests().find((d) => d.code === S.search.to && d.froms.has(b.dataset.c))) S.search.to = null; sc.remove(); render(); });
+}
+function pickTo() {
+  const list = dests().filter((d) => d.froms.has(S.search.from));
+  const sc = sheet(`<div class="shead"><h2>Flying to</h2><p>Direct Wizz Air routes from ${esc(apByCode(S.search.from).name)}</p></div><div class="body">${list.map((d) => `<button class="pick" data-c="${d.code}"><div><b>${esc(d.city)}</b><small>from ${money(Math.min(...oneWays().filter((i) => i.meta.from === S.search.from && i.meta.to === d.code).map((i) => i.price)))}</small></div><span class="code">${d.code}</span></button>`).join("")}</div>`);
+  sc.querySelectorAll("[data-c]").forEach((b) => b.onclick = () => { S.search.to = b.dataset.c; sc.remove(); render(); });
+}
+function next14() { const out = [], t = new Date(); t.setHours(12, 0, 0, 0); for (let k = 1; k <= 14; k++) { const d = new Date(t.getTime() + k * 864e5); out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`); } return out; }
+function pickDate() {
+  const sc = sheet(`<div class="shead"><h2>Departure date</h2></div><div class="body"><button class="pick" data-d=""><b>Any date</b></button>${next14().map((d) => `<button class="pick" data-d="${d}"><b>${fmtDate(d)}</b></button>`).join("")}</div>`);
+  sc.querySelectorAll("[data-d]").forEach((b) => b.onclick = () => { S.search.date = b.dataset.d || null; sc.remove(); render(); });
+}
+function pickPax() {
+  const sc = sheet(`<div class="shead"><h2>Passengers</h2></div><div class="sheetfoot" style="border:0"><b style="color:var(--navy);flex:1">Adults <small style="color:var(--muted);font-weight:600">(16+)</small></b><div class="stepper"><button data-q="-1">−</button><span id="pq">${S.search.pax}</span><button data-q="1">+</button></div></div>`);
+  sc.querySelectorAll("[data-q]").forEach((b) => b.onclick = () => { S.search.pax = Math.min(6, Math.max(1, S.search.pax + +b.dataset.q)); $("#pq").textContent = S.search.pax; render(); });
+}
+function doSearch() {
+  if (!S.search.to) { toast("Choose a destination"); return; }
+  const fl = flightsFor(S.search.from, S.search.to);
+  if (!S.search.date || !fl.some((i) => i.meta.date === S.search.date)) S.search.date = fl[0]?.meta.date || null;
+  go("results");
+}
+const flightsFor = (from, to) => oneWays().filter((i) => i.meta.from === from && i.meta.to === to).sort((a, b) => a.meta.date.localeCompare(b.meta.date));
+
+// ======================= results =======================
+function resultsView() {
+  const s = S.search, from = apByCode(s.from), all = flightsFor(s.from, s.to), d = all[0]?.meta;
+  const today = all.filter((i) => i.meta.date === s.date);
+  return `
+  <div class="rhead"><div class="r1"><button class="circle" onclick="go('home')">${I.back}</button>
+    <div class="route">${esc(from.name)} <span style="color:var(--pink)">✈</span> ${esc(d?.toCity || "")}</div></div>
+    <div class="sub">${from.meta.code} → ${d?.to || ""} · One-way · ${s.pax} adult${s.pax > 1 ? "s" : ""}</div></div>
+  <div class="days">${next14().map((iso) => { const f = all.find((i) => i.meta.date === iso); const dd = new Date(iso + "T12:00");
+    return `<button class="day ${iso === s.date ? "on" : ""} ${f ? "" : "none"}" ${f ? `onclick="S.search.date='${iso}';render()"` : ""}><small>${dd.toLocaleDateString("en-GB", { weekday: "short" })}</small><b>${dd.getDate()} ${dd.toLocaleDateString("en-GB", { month: "short" })}</b><span>${f ? money(f.price).replace(/\.\d+$/, "") : "—"}</span></button>`; }).join("")}</div>
+  <div class="flist">${today.length ? today.map(flightCard).join("") : `<div class="empty">No flights on this day.</div>`}</div>`;
+}
+function flightCard(i) {
+  const m = i.meta;
+  return `<button class="fcard" onclick="openFare('${i.id}')">
+    <div class="ft"><div><div class="tm">${m.dep}</div><div class="ap">${m.from}</div></div>
+      <div class="mid">${dur(m.durationMin)}<div class="ln"></div>Direct · ${esc(m.flightNo)}</div>
+      <div style="text-align:right"><div class="tm">${m.arr}</div><div class="ap">${m.to}</div></div></div>
+    <div class="fb"><span>${esc(fmtDate(m.date))} · <span class="left">${m.seatsLeft} seats left</span></span><span class="pr">${money(i.price)}<small>per person</small></span></div>
+  </button>`;
+}
+
+// ======================= fare / bags sheet =======================
+function openFare(id, preset) {
+  const it = item(id), m = it.meta;
+  const st = { qty: S.search.pax, opts: new Set(preset || []) };
+  const BUNDLES = [["Basic", "1 small personal item", []], ["WIZZ Go", "+ 20kg checked bag, seat", ["bag20", "seat"]], ["WIZZ Plus", "+ Priority, 20kg bag, seat, Flex", ["priority", "bag20", "seat", "flex"]]];
+  const scrim = document.createElement("div");
+  scrim.className = "scrim";
+  const draw = () => {
+    const unit = it.price + [...st.opts].reduce((s, o) => s + it.options.find((x) => x.id === o).price, 0);
+    const eq = (a) => a.length === st.opts.size && a.every((x) => st.opts.has(x));
+    scrim.innerHTML = `<div class="sheet" onclick="event.stopPropagation()"><div class="grab"></div><div class="body">
+      <div class="shead"><h2>${esc(m.fromCity)} ${m.roundTrip ? "⇄" : "→"} ${esc(m.toCity)}</h2>${legs(m).map((g) => `<p>${g.label ? `<b style="color:var(--pink)">${g.label}</b> · ` : ""}${esc(fmtDate(g.date))} · ${g.dep}–${g.arr} · ${esc(g.flightNo)} · ${dur(g.durationMin)} direct</p>`).join("")}</div>
+      <div class="bundles">${BUNDLES.map(([n, d, o]) => `<button class="bundle ${eq(o) ? "on" : ""}" data-b="${o.join(",")}"><b>${n}</b><small>${d}</small><span>${money(it.price + o.reduce((s, x) => s + it.options.find((y) => y.id === x).price, 0))}</span></button>`).join("")}</div>
+      <div class="og"><h4>Customise · per passenger</h4>
+        ${it.options.map((o) => `<button class="opt ${st.opts.has(o.id) ? "on" : ""}" data-o="${o.id}"><span class="oi">${OPT_ICON[o.id] || "➕"}</span><div>${esc(o.name)}<small>${OPT_SUB[o.id] || ""}</small></div><span class="x">+${money(o.price)}</span><span class="box"></span></button>`).join("")}</div>
+    </div>
+    <div class="sheetfoot"><div class="stepper"><button data-q="-1">−</button>${st.qty} ${I.user.replace('width="20" height="20"', 'width="16" height="16"')}<button data-q="1">+</button></div>
+      <button class="btn" id="addbtn">Continue <span style="opacity:.85">${money(unit * st.qty)}</span></button></div></div>`;
+    scrim.querySelectorAll("[data-o]").forEach((b) => b.onclick = () => { st.opts.has(b.dataset.o) ? st.opts.delete(b.dataset.o) : st.opts.add(b.dataset.o); draw(); });
+    scrim.querySelectorAll("[data-b]").forEach((b) => b.onclick = () => { st.opts = new Set(b.dataset.b ? b.dataset.b.split(",") : []); draw(); });
+    scrim.querySelectorAll("[data-q]").forEach((b) => b.onclick = () => { st.qty = Math.min(6, Math.max(1, st.qty + +b.dataset.q)); draw(); });
+    scrim.querySelector("#addbtn").onclick = () => { S.cart = { venueId: it.venueId, lines: [{ itemId: it.id, qty: st.qty, optionIds: [...st.opts] }] }; S.agentPayment = null; scrim.remove(); go("checkout"); };
+  };
+  scrim.onclick = () => scrim.remove();
+  draw();
+  $("#screen").appendChild(scrim);
+}
+
+// ======================= checkout =======================
+function checkoutView() {
+  const v = venue(S.cart.venueId);
+  if (!v) return `<div class="pagehead"><button class="circle" onclick="go('home')">${I.back}</button><h1>Booking</h1></div><p style="padding:16px">Nothing selected yet.</p>`;
+  const l0 = S.cart.lines[0], m = item(l0.itemId).meta;
+  const sub = cartSubtotal(), total = sub + v.deliveryFee + S.data.serviceFee;
+  return `
+  <div class="pagehead"><button class="circle" onclick="${m.roundTrip ? "go('home')" : `S.search.from='${m.from}';S.search.to='${m.to}';S.search.date='${m.date}';go('results')`}">${I.back}</button><div><h1>${esc(m.fromCity)} ${m.roundTrip ? "⇄" : "→"} ${esc(m.toCity)}</h1><div class="vsub">${legs(m).map((g) => `${esc(fmtDate(g.date))} · ${g.dep} · ${esc(g.flightNo)}`).join(" &nbsp;|&nbsp; ")}</div></div></div>
+  <div class="progress"><i class="done"></i><i class="done"></i><i class="done"></i><i></i></div>
+  <div class="block"><h3>Passengers</h3>
+    ${Array.from({ length: l0.qty }, (_, k) => `<div class="row"><span class="ic">👤</span><div>${k === 0 ? PAX : `Passenger ${k + 1}`}<small>Adult · ${k === 0 ? "Georgian passport •••• 7713" : "details to add before check-in"}</small></div><span class="chev">›</span></div>`).join("")}
+  </div>
+  <div class="block"><h3>Your flight &amp; extras</h3>
+    ${S.cart.lines.map((l) => { const it = item(l.itemId); return `<div class="line">${it.image ? `<img src="${it.image}" alt="">` : `<span class="ph">✈</span>`}<span class="q">${l.qty}×</span>
+      <div class="nm">${esc(it.name)}<div class="mods">${l.optionIds.length ? l.optionIds.map((o) => esc(it.options.find((x) => x.id === o).name)).join(", ") : "Basic · small personal item only"}</div></div><span class="pr">${money(linePrice(l))}</span></div>`; }).join("")}
+  </div>
+  <div class="block"><h3>Payment</h3>
+    <div class="row"><span class="ic"><span class="mc"></span></span><div>${esc(S.data.paymentMethod)}<small>Saved card · WIZZ account</small></div><span class="chev">›</span></div>
+  </div>
+  <div class="block"><h3>Price breakdown</h3>
+    <div class="sum"><span>Flight &amp; extras</span><span>${money(sub)}</span></div>
+    <div class="sum"><span>Administration fee</span><span>${S.data.serviceFee ? money(S.data.serviceFee) : "Included"}</span></div>
+    <div class="sum total"><span>Total</span><span>${money(total)}</span></div>
+  </div>
+  <div style="padding:14px 16px 30px"><button class="btn" id="cobtn" onclick="checkoutPay()">Pay ${money(total)}</button></div>`;
+}
+async function checkoutPay() {
+  $("#cobtn").disabled = true;
+  let intent = S.agentPayment && S.cartSignature === sig() ? S.agentPayment : null;
+  if (!intent) {
+    const r = await agent.createOrder(S.cart.lines.map((l) => ({ item_id: l.itemId, qty: l.qty, option_ids: l.optionIds })));
+    if (r.error) { toast(r.error); $("#cobtn").disabled = false; return; }
+    intent = r;
+  }
+  const p = await payWithFaceId(intent);
+  if (p) startIssuing(p, false);
+  else $("#cobtn").disabled = false;
+}
+
+// ======================= payment: the real card-payment path, visualised =======================
+async function payWithFaceId(intent) {
+  const r = await AgentPayUI.pay({ root: $("#screen"), agent, payment: intent, accent: "#c6007e", merchant: "Wizz Air" });
+  refreshHood();
+  return r;
+}
+
+// ======================= fulfilment: the real airline booking process, live =======================
+let issueRun;
+function startIssuing(p, viaAgent) {
+  const l = p.lines[0], it = item(l.itemId), m = it.meta, L = legs(m);
+  const pnr = pnrFor(p.id);
+  const seats = ["14C", "9A"].slice(0, L.length);
+  const tkt = L.map((_, k) => `022-${String(4180000000 + (parseInt(pnr, 36) % 999983) * 37 + k * 1171).slice(0, 10)}`);
+  S.order = { p, viaAgent, pnr, seats };
+  S.cart = { venueId: null, lines: [] };
+  S.agentPayment = null;
+  closeChat();
+  issueRun?.cancel();
+  go("issuing");
+  const days = Math.round((new Date(m.date + "T12:00") - new Date()) / 864e5);
+  const x = {
+    L, pnr, seats, tkt, n: L.length, qty: l.qty, total: money(p.total), pm: p.paymentMethod, name: lname(l), open: days <= 30,
+    chosen: l.options.includes("Seat selection"),
+    route: L.map((g) => g.from).concat(L[L.length - 1].to).join(" → "),
+    flights: L.map((g) => `${g.flightNo} ${g.from}→${g.to} ${fd(g.date)}`).join(" · "),
+    seatsTxt: L.map((g, k) => `${seats[k]} — ${g.flightNo}`).join(" · "),
+  };
+  const head = t().head(x);
+  issueRun = AgentPayUI.stages($("#istages"), t().stages(x), {
+    accent: "#c6007e",
+    onStage: (i) => {
+      if (S.screen !== "issuing") return;
+      $("#ibig").textContent = head[i][0];
+      $("#isub").textContent = head[i][1];
+      $("#ipnr").textContent = i >= 2 ? pnr : "······";
+      if (i === 3) $("#iplane").classList.add("fly");
+      document.querySelectorAll(".bpmini").forEach((b) => b.classList.toggle("on", i >= 6));
+      const row = $("#istages").children[i];
+      if (i >= 2) row?.scrollIntoView({ block: "center", behavior: "smooth" });
+    },
+    onDone: () => setTimeout(() => { if (S.screen === "issuing") go("confirm"); }, 1200),
+  });
+}
+function issuingView() {
+  const { p, viaAgent } = S.order;
+  const m = item(p.lines[0].itemId).meta, L = legs(m), rt = L.length > 1;
+  // route art: KUT (left) → BER (right) on the upper arc, back on the lower arc
+  const path = rt ? "M 40 92 C 120 10, 240 10, 320 70 C 240 140, 120 140, 40 92" : "M 40 92 C 120 10, 240 10, 320 70";
+  return `
+  <div class="ihero">
+    <div class="r1"><button class="circle" onclick="issueRun?.cancel();go('confirm')" title="Skip">${I.close}</button>${logo()}<span style="width:34px"></span></div>
+    <div class="iart">
+      <svg width="360" height="150" viewBox="0 0 360 150">
+        <path d="${path}" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="2" stroke-dasharray="4 6"/>
+        <circle cx="40" cy="92" r="7" fill="#c6007e" stroke="#fff" stroke-width="2.5"/><circle cx="320" cy="70" r="7" fill="#fff" stroke="#c6007e" stroke-width="2.5"/>
+        <text x="40" y="122" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">${L[0].from}</text>
+        <text x="320" y="100" fill="#fff" font-size="14" font-weight="700" text-anchor="middle">${L[0].to}</text>
+        <text x="180" y="28" fill="rgba(255,255,255,.7)" font-size="11" text-anchor="middle">${esc(L[0].flightNo)} · ${esc(fd(L[0].date))}</text>
+        ${rt ? `<text x="180" y="138" fill="rgba(255,255,255,.7)" font-size="11" text-anchor="middle">${esc(L[1].flightNo)} · ${esc(fd(L[1].date))}</text>` : ""}
+      </svg>
+      <div class="iplane" id="iplane" style="offset-path: path('${path}')">✈</div>
+    </div>
+    <div class="ibig" id="ibig">${esc(t().head({ total: money(p.total) })[0][0])}</div>
+    <div class="isub" id="isub">${money(p.total)}</div>
+    <div class="ipnrrow"><span>${t().code}</span><b id="ipnr">······</b></div>
+  </div>
+  <div style="padding:16px">
+    ${viaAgent ? `<div class="agentpaid" style="margin:0 0 14px">${t().agentpaid}</div>` : ""}
+    <div id="istages"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">${L.map((g, k) => `<div class="bpmini"><b>${g.from} → ${g.to}</b><small>${esc(g.flightNo)} · ${esc(fd(g.date))} · ${t().seat} ${S.order.seats[k]}</small></div>`).join("")}</div>
+  </div>`;
+}
+
+// ======================= confirmation / boarding pass =======================
+function pnrFor(id) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; for (let k = 0; k < 6; k++) { s += A[h % A.length]; h = Math.floor(h / A.length) + k * 7919; } return s; }
+function qrSvg(seed) {
+  const N = 25; let h = 0; for (const c of seed) h = (h * 131 + c.charCodeAt(0)) >>> 0;
+  const rnd = () => (h = (h * 1103515245 + 12345) >>> 0) / 4294967296;
+  const finder = (x, y) => `<rect x="${x}" y="${y}" width="7" height="7" fill="#06038d"/><rect x="${x + 1}" y="${y + 1}" width="5" height="5" fill="#fff"/><rect x="${x + 2}" y="${y + 2}" width="3" height="3" fill="#06038d"/>`;
+  const inF = (x, y) => (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
+  let cells = ""; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!inF(x, y) && rnd() > 0.52) cells += `<rect x="${x}" y="${y}" width="1" height="1"/>`;
+  return `<svg viewBox="-1 -1 ${N + 2} ${N + 2}" shape-rendering="crispEdges"><rect x="-1" y="-1" width="${N + 2}" height="${N + 2}" fill="#fff"/><g fill="#06038d">${cells}</g>${finder(0, 0)}${finder(N - 7, 0)}${finder(0, N - 7)}</svg>`;
+}
+function confirmView() {
+  const { p, viaAgent, pnr } = S.order;
+  const l = p.lines[0], it = item(l.itemId), m = it.meta;
+  const seats = S.order.seats || ["14C", "9A"];
+  const bag = l.options.some((o) => /checked/i.test(o)) ? "20kg ✓" : "—";
+  const prio = l.options.some((o) => /Priority/.test(o));
+  const pass = (g, k) => { const board = addMin(g.dep, -30); return `
+    <div class="bp" style="margin-bottom:14px">
+      <div class="bh">${logo()}<span style="font-weight:700;font-size:13px">${t().bp(legLabel(g))}</span></div>
+      <div class="rt"><div><div class="c">${g.from}</div><small>${esc(cFrom(g))} · ${g.dep}</small></div><span class="pl">✈</span><div style="text-align:right"><div class="c">${g.to}</div><small>${esc(cTo(g))} · ${g.arr}</small></div></div>
+      <div class="grid">
+        <div><small>${t().passenger}</small><b>${esc(paxShort())}</b></div><div><small>${t().flight}</small><b>${esc(g.flightNo)}</b></div><div><small>${t().date}</small><b>${esc(fdShort(g.date))}</b></div>
+        <div><small>${t().boarding}</small><b>${board}</b></div><div><small>${t().seatL}</small><b>${seats[k]}</b></div><div><small>${t().bag}</small><b>${bag}</b></div>
+      </div>
+      <div class="tear"></div>
+      <div class="qr">${qrSvg(p.id + k)}<div><small>${t().gate}</small><b>${addMin(g.dep, -15)}</b><small style="margin-top:8px">${t().group}</small><b>${t().prio(prio)}</b><small style="margin-top:8px">${t().paxL}</small><b>${t().adults(l.qty)}</b></div></div>
+    </div>`; };
+  return `<div class="confirm">
+    <div style="display:flex;justify-content:space-between;align-items:center"><button class="circle" onclick="go('home')">${I.close}</button>${logo()}<span style="width:34px"></span></div>
+    <div class="ok"><div class="tick">${I.tick}</div><h1>${esc(t().going(cTo(m)))}</h1><p>${t().confirmed(m.roundTrip ? esc(fd(m.ret.date)) : "", pnr)}</p></div>
+    ${legs(m).map(pass).join("")}
+    ${viaAgent ? `<div class="agentpaid" style="margin-top:0">${t().agentpaid}</div>` : ""}
+    <div class="block" style="padding:0;background:#fff;border-radius:16px;padding:12px 14px">
+      ${p.lines.map((x) => `<div class="line" style="border:0"><span class="q">${x.qty}×</span><div class="nm">${esc(lname(x))}${x.options.length ? `<div class="mods">${esc(lopts(x).join(", "))}</div>` : ""}</div><span class="pr">${money(x.qty * x.unitPrice)}</span></div>`).join("")}
+      <div class="sum"><span>${t().admin}</span><span>${p.serviceFee ? money(p.serviceFee) : t().included}</span></div>
+      <div class="sum total"><span>${t().paid} · ${esc(p.paymentMethod)}</span><span>${money(p.total)}</span></div>
+    </div>
+    <button class="btn navy" style="margin-top:14px" onclick="toast(t().walletToast)">${t().wallet}</button>
+  </div>`;
+}
+
+// ======================= AI chat =======================
+function openChat(prefill) {
+  if (S.chatOpen) return;
+  S.chatOpen = true;
+  $("#statusbar").classList.add("light");
+  const c = document.createElement("div");
+  c.className = "chat";
+  c.id = "chat";
+  const near = nearest()[0];
+  c.innerHTML = `
+    <div class="chathead"><button onclick="closeChat()" style="color:var(--navy)">${I.back}</button><div class="logo">✦</div>
+      <div style="flex:1;min-width:0"><b>WIZZ AI</b><small><i></i>${esc(t().sub(`${ka() ? near.ka?.name || near.name : near.name} (${near.meta.code})`))}</small></div>
+      <div class="langsw"><button class="${LANG === "en" ? "on" : ""}" onclick="setLang('en')">EN</button><button class="${LANG === "ka" ? "on" : ""}" onclick="setLang('ka')">ქარ</button></div></div>
+    <div class="msgs" id="msgs">
+      <div class="welcome"><div class="logo">✦</div><h2>${t().title}</h2><p>${t().intro}</p>
+        <div class="sugg">
+          ${t().chips.map((c) => `<button>${esc(c)}</button>`).join("")}
+                  </div></div>
+    </div>
+    <form class="composer" id="composer"><button type="button" class="mic" id="mic">${I.mic}</button><input id="q" placeholder="${t().ph}" autocomplete="off" /><button class="send">${I.send}</button></form>`;
+  $("#screen").appendChild(c);
+  c.querySelectorAll(".sugg button").forEach((b) => b.onclick = () => send(b.textContent));
+  $("#composer").onsubmit = (e) => { e.preventDefault(); send($("#q").value); };
+  setupMic();
+  if (chatLog.length) { $(".welcome").remove(); chatLog.forEach((el) => $("#msgs").appendChild(el)); scrollChat(); }
+  if (prefill) $("#q").value = prefill;
+  setTimeout(() => $("#q")?.focus(), 250);
+}
+function closeChat() {
+  const c = $("#chat");
+  if (c) { chatLog = [...$("#msgs").children].filter((e) => !e.classList.contains("welcome")); c.remove(); }
+  S.chatOpen = false;
+  $("#statusbar").classList.remove("light");
+}
+let chatLog = [];
+const scrollChat = () => { const m = $("#msgs"); if (m) m.scrollTop = m.scrollHeight; };
+function bubble(cls, text) { const b = document.createElement("div"); b.className = "b " + cls; b.textContent = text; $("#msgs").appendChild(b); scrollChat(); return b; }
+
+async function send(text) {
+  text = text.trim();
+  if (!text || S.busy) return;
+  S.busy = true;
+  $("#q").value = "";
+  if (/[Ⴀ-ჿ]/.test(text) !== ka()) { LANG = ka() ? "en" : "ka"; localStorage.setItem("agentpay_lang", LANG); AgentPayUI.lang = LANG; document.querySelectorAll(".langsw button").forEach((b, k) => b.classList.toggle("on", (k === 1) === ka())); }
+  $(".welcome")?.remove();
+  bubble("me", text);
+  const tb = AgentPayUI.thinking($("#msgs"), { accent: "#c6007e", onUpdate: scrollChat });
+  const replyHolder = document.createElement("div");
+  replyHolder.style.display = "contents";
+  $("#msgs").appendChild(replyHolder);
+  hoodClear(text);
+  await agent.send(text, (e) => {
+    hoodEvent(e);
+    if (e.type === "status") tb.status(e.text);
+    if (e.type === "thinking") tb.thought(e.text);
+    if (e.type === "tool") tb.step(e.label, !e.result?.error);
+    if (e.type === "payment") tb.settled().then(() => orderCard(e.payment));
+    if (e.type === "reply" && e.text) tb.settled().then(() => { const b = document.createElement("div"); b.className = "b ai"; b.textContent = e.text; replyHolder.appendChild(b); scrollChat(); });
+    if (e.type === "error") tb.settled().then(() => bubble("ai", "⚠ " + e.text));
+    if (e.type === "done") tb.done();
+  }).catch(() => { tb.done(); bubble("ai", t().conn); });
+  await tb.settled();
+  S.busy = false;
+  refreshHood();
+}
+
+function orderCard(p) {
+  // Mirror the agent's proposal into the app's own booking, so "Review booking" shows it too.
+  S.cart = { venueId: p.venue.id, lines: p.lines.map((l) => ({ itemId: l.itemId, qty: l.qty, optionIds: l.options.map((n) => item(l.itemId).options.find((o) => o.name === n).id) })) };
+  S.agentPayment = p;
+  S.cartSignature = sig();
+  document.querySelectorAll(".ocard:not(.paid) .acts").forEach((a) => a.innerHTML = `<div class="note">${t().replaced}</div>`);
+  const m = item(p.lines[0].itemId).meta;
+  const card = document.createElement("div");
+  card.className = "ocard";
+  card.innerHTML = `
+    <div class="vh">
+      ${legs(m).map((g, k) => `${k ? '<div style="height:1px;background:rgba(255,255,255,.18);margin:10px 0"></div>' : ""}
+      ${g.label ? `<div class="meta" style="margin:0 0 6px"><span><b style="color:#ff6fc4">${legLabel(g).toUpperCase()}</b> · ${esc(fd(g.date))} · ${esc(g.flightNo)}</span>${g.price ? `<span>${money(g.price)}</span>` : ""}</div>` : ""}
+      <div class="rt"><div class="c">${g.dep}<small>${esc(cFrom(g))} ${g.from}</small></div><div class="mid">${fdur(g.durationMin)}<div class="ln"></div>${t().direct}</div><div class="c" style="text-align:right">${g.arr}<small>${esc(cTo(g))} ${g.to}</small></div></div>`).join("")}
+      <div class="meta"><span>${m.roundTrip ? "" : `${esc(fd(m.date))} · ${esc(m.flightNo)}`}</span><span>${t().nearest(esc(p.venue.area), km(S.data.location, venue(p.venue.id)).toFixed(0))}</span></div>
+    </div>
+    <div class="ls">${p.lines.map((l) => `<div class="line"><span class="q">${l.qty}×</span><div class="nm">${t().adult(l.qty)} · ${t().fare(item(l.itemId).meta.roundTrip)}<div class="mods">${l.options.length ? "+ " + esc(lopts(l).join(", ")) : t().basic}</div></div><span class="pr">${money(l.qty * l.unitPrice)}</span></div>`).join("")}</div>
+    <div class="sums">
+      <div class="sum"><span>${t().extras}</span><span>${money(p.subtotal)}</span></div>
+      <div class="sum"><span>${t().admin}</span><span>${p.serviceFee ? money(p.serviceFee) : t().included}</span></div>
+      <div class="sum total"><span>${t().total}</span><span>${money(p.total)}</span></div>
+    </div>
+    <div class="pm"><span class="mc"></span>${esc(p.paymentMethod)}<span style="margin-left:auto;color:var(--pink)">${t().change}</span></div>
+    <div class="acts">
+      <button class="btn pay">${t().pay} ${money(p.total)}</button>
+      <button class="btn sec2 edit">${t().review}</button>
+      <div class="note">${t().safe}</div>
+    </div>`;
+  card.querySelector(".pay").onclick = async (ev) => {
+    ev.target.disabled = true;
+    const paid = await payWithFaceId(p);
+    if (!paid) { ev.target.disabled = false; return; }
+    card.classList.add("paid");
+    card.querySelector(".acts").innerHTML = `<div class="paidrow">${t().paidRow(money(paid.total))}</div>`;
+    bubble("ai", t().done(m));
+    setTimeout(() => startIssuing(paid, true), 1400);
+  };
+  card.querySelector(".edit").onclick = () => { closeChat(); go("checkout"); };
+  $("#msgs").appendChild(card);
+  scrollChat();
+}
+
+function setupMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const mic = $("#mic");
+  if (!SR) { mic.style.display = "none"; return; }
+  let rec;
+  mic.onclick = () => {
+    if (rec) { rec.stop(); return; }
+    rec = new SR(); rec.lang = ka() ? "ka-GE" : "en-US"; rec.interimResults = true;
+    mic.classList.add("rec");
+    rec.onresult = (e) => { $("#q").value = [...e.results].map((r) => r[0].transcript).join(""); };
+    rec.onend = () => { mic.classList.remove("rec"); rec = null; if ($("#q").value.trim()) send($("#q").value); };
+    rec.start();
+  };
+}
+function toast(t) { const d = document.createElement("div"); d.className = "toast"; d.textContent = t; $("#screen").appendChild(d); setTimeout(() => d.remove(), 3200); }
+
+// ======================= under the hood =======================
+function hoodClear(text) { $("#hood-trace").innerHTML = `<div class="ev st">${USER_ID} → <b>${esc(text)}</b></div>`; }
+function hoodEvent(e) {
+  const t = $("#hood-trace");
+  const div = document.createElement("div");
+  if (e.type === "status") { div.className = "ev st"; div.textContent = "⋯ agent: " + e.text; }
+  else if (e.type === "thinking") { div.className = "ev st"; div.style.color = "#a9c7dc"; div.textContent = "💭 " + e.text; }
+  else if (e.type === "tool") { div.className = "ev"; div.innerHTML = `<b>${esc(e.tool)}</b>(${esc(JSON.stringify(e.args))})\n→ ${esc(JSON.stringify(e.result).slice(0, 420))}`; }
+  else if (e.type === "payment") { div.className = "ev pay"; div.innerHTML = `<b>payment intent</b> ${esc(e.payment.id)} · ${money(e.payment.total)} · <span class="s-await">awaiting_user_confirmation</span>`; }
+  else if (e.type === "reply") { div.className = "ev st"; div.textContent = "reply: " + e.text; }
+  else if (e.type === "error") { div.className = "ev"; div.style.borderColor = "#f04"; div.textContent = "error: " + e.text; }
+  else return;
+  t.appendChild(div);
+  t.parentElement.scrollTop = t.parentElement.scrollHeight;
+}
+async function refreshHood() {
+  const s = await fetch(`/debug/${TENANT}`).then((r) => r.json());
+  $("#hood-agent").innerHTML = `${s.mode === "gemini" ? `Gemini <b style="color:#fff">${esc(s.model)}</b>` : `<b style="color:#ffc24b">MOCK</b> (no GEMINI_API_KEY)`} · function calling · per-tenant memory`;
+  const u = Object.entries(s.memory);
+  $("#hood-mem").innerHTML = u.length ? u.map(([id, m]) => `<div><b style="color:#fff">${esc(id)}</b> · ${m.history.length} messages<br>${m.preferences.map((p) => `<span class="tag">${esc(p)}</span>`).join("") || '<span style="color:#7a8a9a">no saved preferences</span>'}</div>`).join("") : '<span style="color:#7a8a9a">empty</span>';
+  $("#hood-pay").innerHTML = s.payments.length ? s.payments.slice(-4).reverse().map((p) => `<div style="margin-bottom:6px">${esc(p.id)} · ${money(p.total)} · ${p.history.map((h) => `<span class="s-${h.status.split("_")[0]}">${h.status}</span><span style="color:#7a8a9a">(${h.by})</span>`).join(" → ")}</div>`).join("") : '<span style="color:#7a8a9a">none</span>';
+}
+$("#reset").onclick = async () => { await fetch(`/debug/${TENANT}/reset`, { method: "POST" }); location.reload(); };
+$("#hoodtoggle").onclick = () => { $("#hood").classList.toggle("off"); $("#hoodtoggle").textContent = $("#hood").classList.contains("off") ? "Show under the hood" : "Hide under the hood"; };
+
+// ======================= boot =======================
+(async () => {
+  S.data = await fetch(`/demo-data/${TENANT}`).then((r) => r.json());
+  AgentPayUI.lang = LANG;
+  agent = AgentPay.init({ key: "pk_wizzair_demo", userId: USER_ID, location: S.data.location });
+  S.search.from = nearest()[0].meta.code;
+  $("#fab").onclick = () => openChat();
+  renderNav();
+  render();
+  refreshHood();
+  if (new URLSearchParams(location.search).has("clean")) { $("#hood").classList.add("off"); $("#hoodtoggle").textContent = "Show under the hood"; }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1015 @@
+<!doctype html>
+<!-- PROTOTYPE — throwaway investor demo. A myhome.ge (daily rent / hotels) look-alike host app with the AgentPay agent built in via /sdk.js.
+     TEST CASE: "Book a Deluxe King room at the Biltmore this weekend with breakfast"
+     Everything myhome-specific (listings, property page, booking) is "the client's app"; the agent + payments come from our API. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>myhome.ge — AI booking demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Georgian:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --green: #26b571; --green-dark: #1f9a5f; --green-08: rgba(38,181,113,.09); --green-16: rgba(38,181,113,.18);
+    --blue: #1552f5; --orange: #fd541a; --text: #222; --muted: #646464; --faint: #909090; --line: rgba(0,0,0,.08);
+    --surface: #f7f7f7; --radius: 14px;
+    font-family: Inter, "Noto Sans Georgian", -apple-system, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: #eef1f4; color: var(--text); min-height: 100vh; display: flex; justify-content: center; align-items: center; gap: 40px; padding: 24px; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  input, textarea { font: inherit; color: inherit; }
+  img { display: block; }
+
+  /* ---------- phone frame ---------- */
+  .phone { width: 390px; height: 844px; border-radius: 54px; background: #111; padding: 11px; box-shadow: 0 30px 80px rgba(0,0,0,.25); flex-shrink: 0; position: relative; }
+  .screen { width: 100%; height: 100%; border-radius: 44px; overflow: hidden; background: #fff; position: relative; display: flex; flex-direction: column; }
+  .island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 120px; height: 34px; background: #111; border-radius: 20px; z-index: 100; }
+  .statusbar { height: 50px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 30px 6px 34px; font-weight: 700; font-size: 15px; flex-shrink: 0; z-index: 40; background: #fff; }
+  .statusbar .icons { display: flex; gap: 6px; align-items: center; }
+  @media (max-width: 520px) {
+    body { padding: 0; background: #fff; display: block; }
+    .phone { width: 100vw; height: 100dvh; border-radius: 0; padding: 0; box-shadow: none; }
+    .screen { border-radius: 0; }
+    .island, .statusbar, .hood { display: none !important; }
+    .chat { top: 0 !important; }
+  }
+  .view { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; scrollbar-width: none; }
+  .view::-webkit-scrollbar { display: none; }
+
+  /* ---------- header ---------- */
+  .hdr { display: flex; align-items: center; justify-content: space-between; padding: 6px 16px 12px; position: sticky; top: 0; background: #fff; z-index: 6; box-shadow: 0 1px 0 var(--line); }
+  .hdr .r { display: flex; gap: 14px; align-items: center; }
+  .hdr .acc { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--blue); color: var(--blue); display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+
+  /* ---------- home ---------- */
+  .filters { margin: 14px 16px 12px; background: var(--surface); border-radius: 16px; padding: 14px; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
+  .fld { background: #fff; border-radius: 10px; padding: 9px 12px; font-size: 13.5px; color: var(--muted); display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 48px; text-align: left; }
+  .fld > div { min-width: 0; }
+  .fld b { display: block; color: var(--text); font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fld small { font-size: 11px; color: var(--faint); display: block; }
+  .fld.wide { grid-column: span 2; justify-content: flex-start; }
+  .fld .pin { color: var(--green); display: grid; }
+  .row2 { display: flex; gap: 10px; margin: 0 16px 10px; }
+  .outline { flex: 1; border: 1px solid var(--line); border-radius: 12px; padding: 12px; font-weight: 600; font-size: 14.5px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .outline .n { background: #111; color: #fff; border-radius: 50%; width: 19px; height: 19px; display: grid; place-items: center; font-size: 11px; }
+  .sq { width: 46px; border: 1px solid var(--line); border-radius: 12px; display: grid; place-items: center; }
+  .gbtn { background: var(--green); color: #fff; border-radius: 12px; padding: 14px; font-weight: 600; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; }
+  .gbtn:disabled { opacity: .55; }
+  .aiwrap { margin: 0 16px 18px; }
+  .aibanner { margin-top: 12px; width: 100%; border-radius: 16px; padding: 14px; text-align: left; display: flex; gap: 12px; align-items: center; background: linear-gradient(120deg, #e9f8f1 0%, #eef3ff 100%); border: 1px solid var(--green-16); }
+  .aibanner .sp { width: 44px; height: 44px; border-radius: 14px; background: var(--green); color: #fff; display: grid; place-items: center; font-size: 22px; flex-shrink: 0; }
+  .aibanner b { font-size: 15px; font-weight: 700; display: block; }
+  .aibanner span { font-size: 12.5px; color: var(--muted); line-height: 1.35; display: block; margin-top: 2px; }
+  .aibanner .go { margin-left: auto; color: var(--green); font-weight: 700; font-size: 20px; }
+  .tiles { display: flex; gap: 8px; overflow-x: auto; padding: 4px 16px 22px; scrollbar-width: none; }
+  .tile { width: 78px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 7px; font-size: 10.5px; font-weight: 600; text-align: center; line-height: 1.3; }
+  .tile .ic { width: 74px; height: 56px; border-radius: 12px; background: var(--surface); display: grid; place-items: center; color: var(--blue); }
+  .sec { display: flex; justify-content: space-between; align-items: center; padding: 6px 16px 12px; }
+  .sec h2 { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px; text-transform: none; }
+  .sec .arrows { display: flex; gap: 6px; }
+  .sec .arrows span { width: 30px; height: 30px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; color: var(--muted); }
+  .sec a { color: var(--blue); font-weight: 600; font-size: 13.5px; }
+  .carousel { display: flex; gap: 12px; overflow-x: auto; padding: 0 16px 24px; scrollbar-width: none; }
+  .card { width: 300px; flex-shrink: 0; text-align: left; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: #fff; display: block; }
+  .list { padding: 0 16px 110px; display: flex; flex-direction: column; gap: 14px; }
+  .list .card { width: 100%; }
+  .cimg { position: relative; aspect-ratio: 16/10; background: var(--surface); }
+  .cimg img { width: 100%; height: 100%; object-fit: cover; }
+  .badge { position: absolute; left: 10px; top: 10px; border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700; color: #fff; background: var(--orange); }
+  .badge.v { background: var(--blue); }
+  .badge.vp { background: #7b3ff2; }
+  .heart { position: absolute; right: 10px; top: 10px; width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,.92); display: grid; place-items: center; color: #222; }
+  .dots { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; }
+  .dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.55); }
+  .dots i:first-child { background: #fff; }
+  .cbody { padding: 12px 14px 12px; }
+  .pr { display: flex; align-items: center; gap: 8px; }
+  .pr b { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
+  .pr .pn { color: var(--muted); font-size: 13px; font-weight: 500; }
+  .cur { display: inline-flex; background: var(--surface); border-radius: 99px; padding: 2px; font-size: 11px; font-weight: 700; }
+  .cur span { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); }
+  .cur span.on { background: var(--green); color: #fff; }
+  .ctitle { font-size: 14px; font-weight: 600; margin-top: 6px; line-height: 1.35; }
+  .specs { display: flex; gap: 14px; margin-top: 10px; font-size: 13px; color: var(--text); align-items: center; flex-wrap: wrap; }
+  .specs span { display: flex; align-items: center; gap: 5px; }
+  .specs svg { color: #444; }
+  .cfoot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 12.5px; }
+  .cfoot .loc { color: var(--blue); display: flex; gap: 4px; align-items: center; }
+  .cfoot .dt { color: var(--faint); }
+  .stars { color: #f5a623; font-size: 12px; letter-spacing: 1px; }
+
+  /* ---------- bottom nav + fab ---------- */
+  .nav { display: flex; justify-content: space-around; border-top: 1px solid var(--line); background: #fff; padding: 8px 0 22px; flex-shrink: 0; }
+  .nav button { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 600; color: var(--faint); width: 70px; }
+  .nav button.on { color: var(--green); }
+  .nav svg { width: 23px; height: 23px; }
+  .nav .add { width: 44px; height: 44px; border-radius: 50%; background: var(--green); color: #fff; display: grid; place-items: center; margin-top: -4px; }
+  .fab { position: absolute; right: 16px; bottom: 96px; z-index: 20; background: var(--green); color: #fff; border-radius: 99px; padding: 13px 18px 13px 15px; font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 22px rgba(38,181,113,.45); }
+  .fab.hide { display: none; }
+
+  /* ---------- property ---------- */
+  .gal { position: relative; height: 250px; background: #ddd; }
+  .gal .strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; height: 100%; scrollbar-width: none; }
+  .gal .strip img { width: 100%; height: 100%; object-fit: cover; flex-shrink: 0; scroll-snap-align: start; }
+  .gal .btns { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; justify-content: space-between; }
+  .circle { width: 38px; height: 38px; border-radius: 50%; background: #fff; display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+  .gal .cnt { position: absolute; right: 12px; bottom: 12px; background: rgba(0,0,0,.6); color: #fff; font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 99px; display: flex; gap: 5px; align-items: center; }
+  .phead { padding: 16px 16px 6px; }
+  .phead .meta { display: flex; gap: 10px; align-items: center; color: var(--faint); font-size: 12px; margin-bottom: 8px; }
+  .phead .meta .id { background: var(--surface); padding: 3px 8px; border-radius: 6px; }
+  .phead h1 { font-size: 20px; font-weight: 700; line-height: 1.3; }
+  .phead .addr { color: var(--blue); font-size: 13.5px; margin-top: 6px; display: flex; gap: 5px; align-items: center; }
+  .pbox { margin: 12px 16px; border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+  .pbox .pr b { font-size: 24px; }
+  .pbox .rate { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .score { background: var(--green); color: #fff; font-weight: 700; border-radius: 8px 8px 8px 2px; padding: 3px 7px; font-size: 13px; }
+  .bigspecs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 4px 16px 6px; }
+  .bigspecs div { background: var(--surface); border-radius: 12px; padding: 10px 6px; text-align: center; font-size: 11.5px; color: var(--muted); }
+  .bigspecs div b { display: block; color: var(--text); font-size: 14px; margin-top: 4px; font-weight: 700; }
+  .ps { padding: 18px 16px 4px; }
+  .ps h3 { font-size: 17px; font-weight: 700; margin-bottom: 12px; }
+  .ps p { font-size: 14px; color: #444; line-height: 1.5; }
+  .datesel { display: flex; gap: 8px; margin-bottom: 12px; }
+  .datesel div { flex: 1; border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; font-size: 11.5px; color: var(--faint); }
+  .datesel div b { display: block; color: var(--text); font-size: 13.5px; font-weight: 600; }
+  .datesel div.on { border-color: var(--green); background: var(--green-08); }
+  .room { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 12px; display: flex; text-align: left; width: 100%; }
+  .room img { width: 104px; object-fit: cover; flex-shrink: 0; }
+  .room .t { padding: 10px 12px; flex: 1; min-width: 0; }
+  .room .t b { font-size: 14.5px; font-weight: 700; display: block; }
+  .room .t .rs { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .room .t .rp { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 8px; }
+  .room .t .rp b { font-size: 16px; }
+  .room .t .rp small { display: block; font-size: 11.5px; color: var(--faint); }
+  .room .sel { background: var(--green); color: #fff; border-radius: 9px; padding: 7px 12px; font-size: 13px; font-weight: 600; }
+  .amen { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  .amen span { display: flex; gap: 8px; align-items: center; font-size: 13.5px; }
+  .amen i { width: 28px; height: 28px; border-radius: 8px; background: var(--surface); display: grid; place-items: center; font-style: normal; font-size: 14px; }
+  .mapbox { border-radius: 14px; overflow: hidden; height: 170px; position: relative; border: 1px solid var(--line); }
+  .mapbox .lbl { position: absolute; left: 10px; bottom: 10px; background: #fff; border-radius: 10px; padding: 7px 10px; font-size: 12.5px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+  .host { display: flex; gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  .host .av { width: 44px; height: 44px; border-radius: 50%; background: var(--green-08); color: var(--green); display: grid; place-items: center; font-weight: 800; }
+  .host b { font-size: 14.5px; display: block; }
+  .host small { color: var(--muted); font-size: 12px; }
+  .host .call { white-space: nowrap; margin-left: auto; background: var(--green-08); color: var(--green-dark); padding: 9px 12px; border-radius: 10px; font-weight: 600; font-size: 13px; }
+
+  .bookbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 15; background: #fff; border-top: 1px solid var(--line); padding: 12px 16px 26px; display: flex; align-items: center; gap: 12px; }
+  .bookbar .t { flex: 1; font-size: 12px; color: var(--muted); }
+  .bookbar .t b { display: block; font-size: 17px; color: var(--text); }
+  .bookbar .gbtn { width: auto; padding: 13px 22px; }
+
+  /* ---------- sheets ---------- */
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,.4); z-index: 60; display: flex; align-items: flex-end; animation: fade .2s; }
+  .sheet { background: #fff; width: 100%; border-radius: 20px 20px 0 0; max-height: 92%; display: flex; flex-direction: column; animation: up .25s ease-out; }
+  .sheet .body { overflow-y: auto; flex: 1; scrollbar-width: none; }
+  @keyframes up { from { transform: translateY(40%); opacity: .4; } }
+  @keyframes fade { from { opacity: 0; } }
+  .itemimg { width: 100%; height: 200px; object-fit: cover; border-radius: 20px 20px 0 0; }
+  .ihead { padding: 16px; }
+  .ihead h2 { font-size: 20px; font-weight: 700; }
+  .ihead p { color: var(--muted); font-size: 13.5px; margin-top: 6px; line-height: 1.45; }
+  .og { padding: 4px 16px 10px; }
+  .og h4 { font-size: 15px; font-weight: 700; margin: 8px 0 2px; }
+  .opt { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); font-weight: 500; font-size: 14.5px; width: 100%; text-align: left; }
+  .box { width: 22px; height: 22px; border-radius: 6px; border: 2px solid #c4c4c4; display: grid; place-items: center; flex-shrink: 0; }
+  .opt.on .box { background: var(--green); border-color: var(--green); }
+  .opt.on .box::after { content: ""; width: 10px; height: 6px; border: 2.5px solid #fff; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px,-1px); }
+  .opt .x { margin-left: auto; color: var(--muted); font-size: 13.5px; }
+  .sheetfoot { display: flex; gap: 12px; padding: 12px 16px 26px; border-top: 1px solid var(--line); }
+
+  /* ---------- booking ---------- */
+  .pagehead { display: flex; align-items: center; gap: 12px; padding: 8px 16px 12px; position: sticky; top: 0; background: #fff; z-index: 5; border-bottom: 1px solid var(--line); }
+  .pagehead h1 { font-size: 18px; font-weight: 700; }
+  .pagehead .vsub { font-size: 12.5px; color: var(--muted); }
+  .steps3 { display: flex; gap: 6px; padding: 12px 16px 4px; }
+  .steps3 i { flex: 1; height: 4px; border-radius: 4px; background: var(--line); }
+  .steps3 i.on { background: var(--green); }
+  .block { padding: 14px 16px 6px; }
+  .block h3 { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
+  .pcard { display: flex; gap: 12px; border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+  .pcard img { width: 84px; height: 66px; border-radius: 10px; object-fit: cover; }
+  .pcard b { font-size: 14.5px; display: block; }
+  .pcard small { color: var(--muted); font-size: 12.5px; display: block; margin-top: 2px; }
+  .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kv div { background: var(--surface); border-radius: 12px; padding: 10px 12px; font-size: 11.5px; color: var(--faint); }
+  .kv div b { display: block; color: var(--text); font-size: 13.5px; font-weight: 600; margin-top: 2px; }
+  .inp { display: block; border: 1px solid #ddd; border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; }
+  .inp small { display: block; font-size: 11px; color: var(--faint); }
+  .inp input, .inp textarea { border: 0; outline: 0; width: 100%; font-size: 14.5px; font-weight: 500; background: transparent; resize: none; }
+  .line { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: flex-start; }
+  .line img { width: 56px; height: 44px; border-radius: 8px; object-fit: cover; }
+  .line .q { color: var(--green); font-weight: 800; min-width: 22px; }
+  .line .nm { flex: 1; font-weight: 600; font-size: 14px; }
+  .line .mods { color: var(--muted); font-size: 12.5px; font-weight: 500; margin-top: 2px; }
+  .line .mods.g { color: var(--green-dark); font-weight: 600; }
+  .line .lp { font-weight: 700; font-size: 14px; white-space: nowrap; }
+  .sum { display: flex; justify-content: space-between; color: var(--muted); font-size: 14px; padding: 4px 0; }
+  .sum.total { color: var(--text); font-weight: 700; font-size: 17px; padding-top: 8px; }
+  .payrow { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; font-weight: 600; font-size: 14px; }
+  .payrow small { display: block; color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .payrow .chev { margin-left: auto; color: var(--faint); }
+  .visa { background: #1a1f71; color: #fff; font-weight: 900; font-style: italic; font-size: 11px; padding: 3px 6px; border-radius: 4px; }
+  .policy { font-size: 12px; color: var(--muted); line-height: 1.45; background: var(--green-08); border-radius: 12px; padding: 10px 12px; }
+
+  /* ---------- confirmation ---------- */
+  .conf { padding: 26px 16px 30px; }
+  .conf .ok { width: 74px; height: 74px; border-radius: 50%; background: var(--green); margin: 0 auto 14px; display: grid; place-items: center; animation: pop .4s ease-out; }
+  .conf .ok svg { width: 44px; height: 44px; }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } }
+  .conf h1 { text-align: center; font-size: 22px; font-weight: 700; }
+  .conf .sub { text-align: center; color: var(--muted); font-size: 14px; margin-top: 6px; }
+  .resno { margin: 18px 0 14px; border: 1.5px dashed var(--green); border-radius: 14px; padding: 12px; text-align: center; background: var(--green-08); }
+  .resno small { color: var(--muted); font-size: 12px; display: block; }
+  .resno b { font-size: 22px; letter-spacing: 1px; font-weight: 800; color: var(--green-dark); }
+  .agentpaid { display: flex; gap: 10px; align-items: center; background: #eef3ff; border-radius: 12px; padding: 12px 14px; font-weight: 600; font-size: 13px; color: var(--blue); margin: 12px 0; }
+
+  /* ---------- fulfilment ---------- */
+  .fhero { position: relative; height: 190px; }
+  .fhero img { width: 100%; height: 100%; object-fit: cover; }
+  .fshade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.05) 35%, rgba(0,0,0,.7) 100%); }
+  .ftop { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: center; }
+  .fpms { background: rgba(255,255,255,.92); border-radius: 99px; padding: 6px 10px; font-size: 11.5px; font-weight: 600; }
+  .fhd { position: absolute; left: 16px; right: 16px; bottom: 14px; color: #fff; }
+  .fhd .big { font-size: 23px; font-weight: 800; letter-spacing: -.3px; }
+  .fhd #fsub { font-size: 13.5px; opacity: .9; margin-top: 2px; }
+  .fbody { padding: 0 16px 40px; margin-top: -10px; position: relative; }
+  .keycard { background: linear-gradient(135deg, #1d2a24 0%, #0f1714 100%); color: #fff; border-radius: 18px; padding: 14px 16px; box-shadow: 0 10px 28px rgba(0,0,0,.25); position: relative; overflow: hidden; transition: box-shadow .4s; }
+  .keycard::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.12) 50%, transparent 70%); background-size: 250% 100%; animation: sheen 2.2s linear infinite; }
+  .keycard.ok::after { animation: none; opacity: 0; }
+  .keycard.ok { box-shadow: 0 10px 28px rgba(38,181,113,.4); }
+  @keyframes sheen { from { background-position: 150% 0; } to { background-position: -100% 0; } }
+  .kt { display: flex; justify-content: space-between; align-items: center; }
+  .kst { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; background: rgba(255,255,255,.14); padding: 4px 8px; border-radius: 99px; }
+  .keycard[data-stage="1"] .kst, .keycard[data-stage="2"] .kst { background: #ffc24b; color: #222; }
+  .keycard.ok .kst { background: var(--green); color: #fff; }
+  .kh { display: block; font-size: 17px; font-weight: 700; margin-top: 10px; }
+  .kr { font-size: 12.5px; opacity: .75; }
+  .nights { display: flex; gap: 6px; margin: 12px 0; }
+  .nights i { flex: 1; font-style: normal; text-align: center; border: 1px dashed rgba(255,255,255,.3); border-radius: 10px; padding: 6px 2px; font-weight: 800; font-size: 18px; transition: background .4s, border-color .4s; }
+  .nights i small { display: block; font-size: 10px; font-weight: 600; opacity: .75; }
+  .nights i.held { background: rgba(38,181,113,.28); border: 1px solid var(--green); }
+  .nights i.out.held { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.3); }
+  .kf { display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,.14); padding-top: 10px; }
+  .kf small { display: block; font-size: 10.5px; opacity: .65; }
+  .kf b { font-size: 16px; letter-spacing: .5px; white-space: nowrap; }
+  .keycard.ok #kconf { color: #7ee2b0; }
+  .folio { border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; margin-top: 12px; }
+  .folio .fh { font-size: 12px; color: var(--faint); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+  .folio .fr { display: flex; justify-content: space-between; font-size: 13.5px; padding: 4px 0; }
+  .folio .fr.fx { opacity: .25; transition: opacity .4s, color .4s; }
+  .folio .fr.fx.in { opacity: 1; color: var(--green-dark); font-weight: 600; }
+  .folio .fr.tot { font-weight: 700; border-top: 1px solid var(--line); margin-top: 4px; padding-top: 8px; }
+  .kmail { font-size: 12px; color: var(--muted); margin-top: 6px; max-height: 0; overflow: hidden; opacity: 0; transition: all .4s; }
+  .kmail.in { max-height: 60px; opacity: 1; }
+  .fsec { font-size: 16px; font-weight: 700; margin: 18px 0 8px; }
+
+  /* ---------- AI chat ---------- */
+  .chat { position: absolute; inset: 50px 0 0 0; background: #fff; z-index: 55; display: flex; flex-direction: column; animation: up .25s ease-out; }
+  .chathead { display: flex; align-items: center; gap: 10px; padding: 8px 14px 12px; border-bottom: 1px solid var(--line); }
+  .chathead .logo { width: 38px; height: 38px; border-radius: 12px; background: var(--green); color: #fff; display: grid; place-items: center; font-size: 19px; }
+  .chathead b { font-weight: 700; font-size: 16px; display: block; }
+  .langsw { display: flex; background: var(--surface); border-radius: 99px; padding: 3px; flex-shrink: 0; }
+  .langsw button { padding: 5px 9px; border-radius: 99px; font-weight: 700; font-size: 12px; color: var(--muted); }
+  .langsw button.on { background: #fff; color: var(--green-dark); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .chathead small { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 5px; }
+  .chathead small i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; }
+  .msgs { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; scrollbar-width: none; background: #fff; }
+  .b { max-width: 82%; padding: 10px 14px; border-radius: 18px; font-size: 14.5px; font-weight: 500; line-height: 1.4; white-space: pre-wrap; }
+  .b.me { align-self: flex-end; background: var(--green); color: #fff; border-bottom-right-radius: 6px; }
+  .b.ai { align-self: flex-start; background: var(--surface); border-bottom-left-radius: 6px; }
+  .welcome { text-align: center; padding: 22px 6px 8px; }
+  .welcome .logo { width: 60px; height: 60px; border-radius: 18px; margin: 0 auto 12px; background: var(--green); color: #fff; display: grid; place-items: center; font-size: 30px; }
+  .welcome h2 { font-size: 21px; font-weight: 700; }
+  .welcome p { color: var(--muted); font-size: 14px; margin-top: 4px; line-height: 1.4; }
+  .sugg { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+  .sugg button { background: var(--green-08); color: var(--green-dark); padding: 11px 14px; border-radius: 12px; font-weight: 600; font-size: 14px; text-align: left; line-height: 1.35; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ocard { align-self: stretch; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,.06); animation: up .3s ease-out; }
+  .ocard .oimg { position: relative; height: 120px; }
+  .ocard .oimg img { width: 100%; height: 100%; object-fit: cover; }
+  .ocard .oimg .badge { background: var(--green); }
+  .ocard .vh { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .ocard .vh b { font-weight: 700; font-size: 15.5px; display: block; }
+  .ocard .vh small { color: var(--muted); font-size: 12.5px; }
+  .ocard .ls { padding: 4px 14px; }
+  .ocard .ls .line { border-bottom: 0; }
+  .ocard .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 14px 10px; }
+  .ocard .facts div { background: var(--surface); border-radius: 10px; padding: 7px 10px; font-size: 11px; color: var(--faint); }
+  .ocard .facts div b { display: block; color: var(--text); font-size: 12.5px; font-weight: 600; }
+  .ocard .sums { padding: 8px 14px; border-top: 1px solid var(--line); }
+  .ocard .sum { font-size: 13.5px; padding: 2px 0; }
+  .ocard .sum.total { font-size: 16px; }
+  .ocard .pm { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--line); font-weight: 600; font-size: 14px; }
+  .ocard .acts { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .ocard .note { font-size: 11.5px; color: var(--muted); text-align: center; }
+  .ocard.paid { border-color: var(--green); }
+  .gbtn.sec2 { background: var(--green-08); color: var(--green-dark); }
+  .paidrow { display: flex; align-items: center; gap: 8px; color: var(--green); font-weight: 700; justify-content: center; padding: 6px 0; }
+  .composer { display: flex; gap: 8px; align-items: center; padding: 10px 12px 26px; border-top: 1px solid var(--line); }
+  .composer input { flex: 1; background: var(--surface); border: 0; border-radius: 99px; padding: 13px 16px; font-size: 15px; outline: none; }
+  .composer .send { width: 44px; height: 44px; border-radius: 50%; background: var(--green); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+  .composer .mic { width: 44px; height: 44px; border-radius: 50%; background: var(--surface); color: var(--green); display: grid; place-items: center; flex-shrink: 0; }
+  .composer .mic.rec { background: #f04; color: #fff; }
+
+  /* ---------- Face ID ---------- */
+  .toast { position: absolute; top: 60px; left: 16px; right: 16px; z-index: 95; background: var(--text); color: #fff; padding: 12px 14px; border-radius: 12px; font-weight: 600; font-size: 14px; animation: up .25s; }
+
+  /* ---------- under the hood (desktop only) ---------- */
+  .hood { width: 440px; height: 844px; background: #0f1720; color: #cfe3f1; border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.2); }
+  .hood.off { display: none; }
+  .hood h2 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; }
+  .hood h2 small { margin-left: auto; font-size: 11px; color: #7fd8ac; font-weight: 600; }
+  .hood h4 { font-family: Inter, sans-serif; color: #7fd8ac; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; margin-bottom: 6px; }
+  .hood .pane { background: #16212d; border-radius: 12px; padding: 12px; overflow: auto; }
+  .hood .trace { flex: 1; }
+  .hood .ev { border-left: 2px solid #26b571; padding: 2px 0 2px 8px; margin-bottom: 8px; white-space: pre-wrap; word-break: break-word; }
+  .hood .ev b { color: #fff; }
+  .hood .ev.pay { border-color: #ffc24b; }
+  .hood .ev.st { border-color: #3a4a5a; color: #7a8a9a; }
+  .hood .tag { display: inline-block; background: #22303f; padding: 1px 6px; border-radius: 4px; margin: 2px 4px 2px 0; }
+  .hood .s-awaiting { color: #ffc24b; } .hood .s-captured { color: #26b571; } .hood .s-cancelled { color: #ff6b6b; }
+  .hood .reset { margin-left: 8px; background: #22303f; color: #cfe3f1; padding: 4px 10px; border-radius: 6px; font-family: Inter, sans-serif; font-weight: 700; font-size: 11px; }
+  .hoodtoggle { position: fixed; right: 16px; bottom: 16px; background: #0f1720; color: #fff; padding: 8px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; z-index: 200; }
+  @media (max-width: 960px) { .hood, .hoodtoggle { display: none !important; } }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="island"></div>
+    <div class="screen" id="screen">
+      <div class="statusbar"><span>9:41</span><span class="icons">
+        <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#000"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#000"/><rect x="10" y="2.5" width="3" height="9.5" rx="1" fill="#000"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#000"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 2.5c2.3 0 4.4.9 6 2.4l1.2-1.3A10.4 10.4 0 0 0 8 .7 10.4 10.4 0 0 0 .8 3.6L2 4.9a8.6 8.6 0 0 1 6-2.4Zm0 3.6c1.3 0 2.5.5 3.4 1.3l1.2-1.3A6.6 6.6 0 0 0 8 4.3a6.6 6.6 0 0 0-4.6 1.8l1.2 1.3c.9-.8 2.1-1.3 3.4-1.3Zm0 3.6c.4 0 .8.2 1.1.4L8 11.3 6.9 10.1c.3-.2.7-.4 1.1-.4Z" fill="#000"/></svg>
+        <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#000" opacity=".4" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#000"/><rect x="25" y="4.5" width="1.5" height="4" rx=".75" fill="#000" opacity=".4"/></svg>
+      </span></div>
+      <div class="view" id="view"></div>
+      <button class="fab" id="fab">✦ Book with AI</button>
+      <nav class="nav" id="nav"></nav>
+    </div>
+  </div>
+
+  <aside class="hood" id="hood">
+    <h2>✦ Under the hood <small>AgentPay · tenant: myhome</small></h2>
+    <div class="pane"><h4>Agent</h4><div id="hood-agent">…</div></div>
+    <div class="pane trace"><h4>Live agent trace</h4><div id="hood-trace"><span style="color:#7a8a9a">Waiting for a message…</span></div></div>
+    <div class="pane"><h4>myhome.ge tenant memory (isolated) <button class="reset" id="reset">Reset demo</button></h4><div id="hood-mem"></div></div>
+    <div class="pane"><h4>Payments (state machine)</h4><div id="hood-pay"></div></div>
+  </aside>
+  <button class="hoodtoggle" id="hoodtoggle">Hide under the hood</button>
+
+<script src="/sdk.js"></script>
+<script src="/agentpay-ui.js"></script>
+<script>
+// ======================= state =======================
+// ======================= language (AI chat, payment, fulfilment, confirmation) =======================
+let LANG = localStorage.getItem("agentpay_lang") || "en";
+const L = {
+  en: {
+    sub: (a) => `Finds & books stays for you · near ${a}`, title: "Where would you like to stay?",
+    intro: "Tell me the place, dates and extras — I'll find the room, build the booking and get it ready to pay.",
+    chips: ["Book a Deluxe King room at the Biltmore this weekend with breakfast", "Book a sea view apartment in Batumi this weekend with airport transfer", "Book an apartment in Vake this weekend with late checkout"],
+    ph: "Message myhome AI…", conn: "⚠ Connection problem. Please try again.",
+    hotel: "Hotel", daily: "Daily rent", fromYou: "from you", dates: "Dates", stay: "Stay", nightsGuests: (n, g) => `${n} nights · ${g} guests`,
+    room: "Room", extras: "Extras", fee: "Booking fee", total: "Total", change: "Change", pay: "Pay", review: "Review booking",
+    safe: "🔒 Nothing is charged until you confirm.", replaced: "Replaced by the updated booking below",
+    paidRow: (a) => `✓ Paid ${a} · securing your room`, paidMsg: (r, v, d) => `Paid. I'm now confirming your ${r} with ${v} for ${d}.`,
+    m2: "m²", m: "m", km: "km",
+    // fulfilment
+    liveLink: "Live link", ownerCal: "owner calendar (myhome Daily)", checking: "CHECKING…", hold: "ON HOLD", confirmed: "CONFIRMED",
+    confNo: "Confirmation no.", payment: "Payment", pending: "Pending", paidK: (a) => `✓ Paid ${a}`, happening: "What's happening",
+    bookedBy: "✦ Booked by myhome AI · you confirmed with Face ID", folio: "Guest folio", feeLong: "myhome.ge booking fee", prepaid: "Prepaid",
+    mail: (e, v) => `✉️ Voucher sent to ${e} · 🛎 ${v} reservations notified`, cin: "in", cout: "out", night: "night",
+    days: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], bookedBig: "You're booked!",
+    st: (x) => [
+      [`Availability re-checked with ${x.hotel ? x.v : "the owner"}`, `${x.pms} · ${x.r} · ${x.d} · ${x.left} left at ${x.pn}/night`],
+      ["Room held for you", `Inventory blocked · hold expires in 15:00 · rate ${x.rate} · ${x.g} adults`],
+      [`Payment captured · ${x.tot}`, `${x.pm} · AgentPay ${x.id} · posted to the reservation as prepayment (non-cash)`],
+      [`Reservation created · ${x.conf}`, `${x.guest} · ${x.ci} → ${x.co} · ${x.n} nights · ${x.r}`],
+      [x.ex.length ? `${x.ex.join(" + ")} added to the folio` : "Folio opened", x.ex.length ? x.exP + (x.bf ? ` · ${x.g} guests × ${x.n} mornings, 07:00–10:30` : "") : `Room only · ${x.roomP}`],
+      ["Confirmation email sent · hotel notified", `Voucher to ${x.email} · ${x.hotel ? "front desk & reservations" : "owner"} notified`],
+    ],
+    head: (x) => [
+      ["Checking availability…", `Asking ${x.v} for live inventory`],
+      ["Holding your room…", `${x.r} is blocked for you while we confirm`],
+      ["Payment captured", `${x.tot} from ${x.pm} → posted to the hotel as prepayment`],
+      ["Creating reservation…", `Writing the booking into ${x.pms}`],
+      ["Updating your folio…", x.ex.length ? `Adding ${x.ex.join(", ").toLowerCase()}` : "Room-only rate"],
+      ["Sending confirmation…", `Email to ${x.email}`],
+    ],
+    // confirmation
+    cTitle: "Booking confirmed", cBig: "You're booked!", cSub: (v, ci, ct, e) => `${v} is expecting you on ${ci} from ${ct}.<br>Confirmation sent to ${e}`,
+    cNo: (v, hotel) => hotel ? `${v} confirmation no.` : "Reservation number", cAgent: "✦ Found, booked &amp; paid by myhome AI in one message · you confirmed with Face ID",
+    cIn: "Check-in", cOut: "Check-out", cFrom: (t) => `from ${t}`, cUntil: (t) => `until ${t}`, cGuest: "Guest", cStatus: "Status", cOk: "Confirmed · paid",
+    cPaid: (pm) => `Paid with ${pm}`, dir: "🧭 Directions", home: "Back to home",
+  },
+  ka: {
+    sub: (a) => `პოულობს და ჯავშნის თქვენთვის · ${a}`, title: "სად გსურთ დარჩენა?",
+    intro: "მითხარით ადგილი, თარიღები და დამატებები — ვიპოვი ოთახს, შევადგენ ჯავშანს და მოვამზადებ გადასახდელად.",
+    chips: ["დამიჯავშნე Deluxe King ოთახი ბილტმორში ამ შაბათ-კვირას, საუზმით", "დამიჯავშნე ზღვის ხედიანი ბინა ბათუმში ამ შაბათ-კვირას, აეროპორტის ტრანსფერით", "მინდა ბინა ვაკეში ამ შაბათ-კვირას, გვიანი გასვლით"],
+    ph: "მისწერეთ myhome AI-ს…", conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
+    hotel: "სასტუმრო", daily: "დღიური ქირა", fromYou: "თქვენგან", dates: "თარიღები", stay: "დარჩენა", nightsGuests: (n, g) => `${n} ღამე · ${g} სტუმარი`,
+    room: "ოთახი", extras: "დამატებები", fee: "დაჯავშნის საკომისიო", total: "სულ", change: "შეცვლა", pay: "გადახდა", review: "ჯავშნის გადახედვა",
+    safe: "🔒 თანხა არ ჩამოიჭრება, სანამ არ დაადასტურებთ.", replaced: "ჩანაცვლდა ქვემოთ განახლებული ჯავშნით",
+    paidRow: (a) => `✓ გადახდილია ${a} · ოთახს ვადასტურებთ`, paidMsg: (r, v, d) => `გადახდილია. ახლა ვადასტურებ ჯავშანს — ${v}, ${r}, ${d}.`,
+    m2: "მ²", m: "მ", km: "კმ",
+    liveLink: "პირდაპირი კავშირი", ownerCal: "მესაკუთრის კალენდარი (myhome Daily)", checking: "მოწმდება…", hold: "დაბლოკილია", confirmed: "დადასტურებულია",
+    confNo: "დადასტურების №", payment: "გადახდა", pending: "მოლოდინში", paidK: (a) => `✓ ${a}`, happening: "რა ხდება ახლა",
+    bookedBy: "✦ დაჯავშნა myhome AI-მ · თქვენ დაადასტურეთ Face ID-ით", folio: "სტუმრის ანგარიში (ფოლიო)", feeLong: "myhome.ge-ს დაჯავშნის საკომისიო", prepaid: "წინასწარ გადახდილი",
+    mail: (e, v) => `✉️ ვაუჩერი გაიგზავნა: ${e} · 🛎 ${v} — დაჯავშნის განყოფილება ინფორმირებულია`, cin: "შესვლა", cout: "გასვლა", night: "ღამე",
+    days: ["კვი", "ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ"], bookedBig: "დაჯავშნილია!",
+    st: (x) => [
+      [`ხელმისაწვდომობა გადამოწმდა — ${x.hotel ? x.v : "მესაკუთრე"}`, `${x.pms} · ${x.r} · ${x.d} · დარჩენილია ${x.left} ოთახი, ${x.pn}/ღამე`],
+      ["ოთახი თქვენთვის დაიბლოკა", `ინვენტარი დაბლოკილია · ვადა 15:00 წუთი · ტარიფი ${x.rate} · ${x.g} ზრდასრული`],
+      [`გადახდა ჩამოიჭრა · ${x.tot}`, `${x.pm} · AgentPay ${x.id} · ჯავშანზე აისახა წინასწარ გადახდად (უნაღდო)`],
+      [`ჯავშანი შეიქმნა · ${x.conf}`, `${x.guest} · ${x.ci} → ${x.co} · ${x.n} ღამე · ${x.r}`],
+      [x.ex.length ? `${x.ex.join(" + ")} — დაემატა ანგარიშს` : "ანგარიში გაიხსნა", x.ex.length ? x.exP + (x.bf ? ` · ${x.g} სტუმარი × ${x.n} დილა, 07:00–10:30` : "") : `მხოლოდ ოთახი · ${x.roomP}`],
+      ["დადასტურება გაიგზავნა · სასტუმრო ინფორმირებულია", `ვაუჩერი: ${x.email} · ${x.hotel ? "მიმღები და დაჯავშნის განყოფილება" : "მესაკუთრე"} ინფორმირებულია`],
+    ],
+    head: (x) => [
+      ["ვამოწმებთ ხელმისაწვდომობას…", `ცოცხალი მონაცემები: ${x.v}`],
+      ["ოთახს ვბლოკავთ…", `${x.r} თქვენთვის დაბლოკილია, სანამ ვადასტურებთ`],
+      ["გადახდა ჩამოიჭრა", `${x.tot} · ${x.pm} → სასტუმროს წინასწარ გადახდად`],
+      ["ჯავშანს ვქმნით…", `ჯავშანი იწერება სისტემაში: ${x.pms}`],
+      ["ანგარიშს ვაახლებთ…", x.ex.length ? `ემატება: ${x.ex.join(", ").toLowerCase()}` : "მხოლოდ ოთახის ტარიფი"],
+      ["დადასტურებას ვაგზავნით…", `ელფოსტა: ${x.email}`],
+    ],
+    cTitle: "ჯავშანი დადასტურებულია", cBig: "დაჯავშნილია!", cSub: (v, ci, ct, e) => `${v} გელოდებათ: ${ci}, ${ct}-დან.<br>დადასტურება გაიგზავნა: ${e}`,
+    cNo: (v, hotel) => hotel ? `${v} — დადასტურების ნომერი` : "ჯავშნის ნომერი", cAgent: "✦ იპოვა, დაჯავშნა და გადაიხადა myhome AI-მ ერთ შეტყობინებაში · თქვენ დაადასტურეთ Face ID-ით",
+    cIn: "შესვლა", cOut: "გასვლა", cFrom: (t) => `${t}-დან`, cUntil: (t) => `${t}-მდე`, cGuest: "სტუმარი", cStatus: "სტატუსი", cOk: "დადასტურებული · გადახდილი",
+    cPaid: (pm) => `გადახდილია: ${pm}`, dir: "🧭 მარშრუტი", home: "მთავარზე დაბრუნება",
+  },
+};
+const t = () => L[LANG];
+const ka = () => LANG === "ka";
+const vN = (v) => (ka() && v.ka?.name) || v.name;                       // venue (catalog object)
+const pvN = (pv) => (ka() && pv.nameKa) || pv.name;                       // venue on a payment intent
+const addrL = (v) => (ka() && v.meta.addressKa) || v.meta.address;
+const rN = (it) => (ka() && it.meta.roomTypeKa) || it.meta.roomType;
+const dL = (m) => (ka() && m.dateLabelKa) || m.dateLabel;
+const ciL = (m) => { const x = dL(m); return x.split(" – ")[0] + " " + x.split(" ").pop(); };
+const coL = (m) => dL(m).split(" – ")[1];
+const bedL = (m) => (ka() && m.bedKa) || m.bed;
+const viewL = (m) => (ka() && m.viewKa) || m.view;
+const lopts = (l) => (ka() && l.optionsKa) || l.options;
+const locShort = () => (ka() && S.data.location.labelKa ? S.data.location.labelKa : S.data.location.label).split(",")[0];
+function setLang(l) {
+  LANG = l; localStorage.setItem("agentpay_lang", l); AgentPayUI.lang = l;
+  if (S.chatOpen) { const keep = [...$("#msgs").children].filter((e) => !e.classList.contains("welcome")); closeChat(); chatLog = keep; openChat(); }
+}
+
+const USER_ID = "user_123";
+const S = {
+  data: null, screen: "home", venueId: null, dateWin: "we",
+  cart: { venueId: null, lines: [] },    // lines: { itemId, qty, optionIds }
+  agentPayment: null, cartSignature: null, fulfil: null,
+  booking: null, chatOpen: false, busy: false,
+  guest: { name: "Luka Beridze", phone: "+995 599 12 34 56", email: "luka.b@mail.ge", note: "" },
+};
+let agent;
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const money = (n) => Number(n).toLocaleString("en-US", { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 }) + " ₾";
+const venue = (id) => S.data.venues.find((v) => v.id === id);
+const item = (id) => S.data.catalog.find((i) => i.id === id);
+const km = (a, b) => { const R = 6371, r = Math.PI / 180, dLa = (b.lat - a.lat) * r, dLn = (b.lng - a.lng) * r;
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLn / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+const dist = (v) => { const d = km(S.data.location, v); return d < 1 ? Math.round(d * 1000) + " " + t().m : d.toFixed(1) + " " + t().km; };
+const linePrice = (l) => { const it = item(l.itemId); return (it.price + (l.optionIds || []).reduce((s, o) => s + it.options.find((x) => x.id === o).price, 0)) * l.qty; };
+const cartCount = () => S.cart.lines.reduce((s, l) => s + l.qty, 0);
+const cartSubtotal = () => S.cart.lines.reduce((s, l) => s + linePrice(l), 0);
+const sig = () => JSON.stringify(S.cart);
+const roomName = (n) => n.split(" · ")[0];
+const ciLabel = (m) => m.dateLabel.split(" – ")[0] + " " + m.dateLabel.split(" ").pop();
+const starStr = (n) => n ? "★".repeat(n) : "";
+
+// ======================= icons =======================
+const I = {
+  logo: `<svg width="124" height="36" viewBox="0 0 138 40" fill="none"><path d="M118.86.78H19.32C8.82.78.3 9.23.3 19.64v1.07c0 10.42 8.52 18.87 19.02 18.87h99.48c10.5 0 19.02-8.45 19.02-18.87v-1.07C137.88 9.23 129.36.78 118.86.78Z" fill="#26B571"/><path d="M101.46 20.59c0 8.04-6.6 14.58-14.76 14.58H20.1c-8.1 0-14.76-6.54-14.76-14.58v-.83c0-8.03 6.6-14.58 14.76-14.58h66.54c8.1 0 14.76 6.55 14.76 14.58v.83Z" fill="#fff"/><text x="53" y="26.5" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="800" font-size="17.5" fill="#414042" letter-spacing="-.3">myhome</text><text x="119" y="25.5" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-weight="800" font-size="15.5" fill="#fff">.ge</text></svg>`,
+  menu: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#222" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
+  pin: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>',
+  down: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#222" stroke-width="2.6"><path d="m6 9 6 6 6-6"/></svg>',
+  back: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  close: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  heart: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 21s-8-5.3-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.7-8 11-8 11Z"/></svg>',
+  share: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v13M7 8l5-5 5 5M5 14v6h14v-6"/></svg>',
+  search: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  filter: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#222" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
+  trash: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#222" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
+  area: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>',
+  door: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V3h11v18M16 5h3v16M3 21h18"/><circle cx="13" cy="12" r=".8" fill="currentColor"/></svg>',
+  bed: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5"/><circle cx="7" cy="11" r="1.6"/></svg>',
+  guests: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></svg>',
+  cal: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  photo: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="12" cy="12.5" r="3.5"/></svg>',
+  send: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>',
+  mic: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  face: '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"><path d="M4 18V10a6 6 0 0 1 6-6h8M46 4h8a6 6 0 0 1 6 6v8M60 46v8a6 6 0 0 1-6 6h-8M18 60h-8a6 6 0 0 1-6-6v-8"/><path d="M22 24v5M42 24v5M32 24v12h-3M24 44c4.5 4 11.5 4 16 0"/></svg>',
+  check: '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="26" stroke-width="3.5"/><path d="M20 33l8 8 16-17"/></svg>',
+  tick: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  tiles: {
+    hotel: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 21V5l8-2v18M12 8h8v13M2 21h20M7 8h2M7 12h2M7 16h2M15 12h2M15 16h2"/></svg>',
+    daily: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M8 14h2M14 14h2M8 17h2"/></svg>',
+    sea: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="10" r="3.5"/><path d="M12 2v2M4.5 10h-2M21.5 10h-2M6.5 4.5l1.4 1.4M17.5 4.5l-1.4 1.4M2 17c2.5-1.5 4.5-1.5 7 0s4.5 1.5 7 0 4.5-1.5 6 0M2 21c2.5-1.5 4.5-1.5 7 0s4.5 1.5 7 0"/></svg>',
+    cottage: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 11 12 4l9 7M5 9.5V20h14V9.5M10 20v-5h4v5"/></svg>',
+    apt: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="3" width="14" height="18" rx="1"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M11 21v-3h2v3"/></svg>',
+  },
+  nav: {
+    Home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+    Search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+    Add: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    Saved: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-8-5.3-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.7-8 11-8 11Z"/></svg>',
+    Profile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  },
+};
+const AMEN_IC = { "Indoor pool": "🏊", "Spa & fitness": "💆", "Free Wi-Fi": "📶", Parking: "🅿️", Restaurant: "🍽", "Rooftop bar": "🍸", "Airport shuttle": "🚐", "24h reception": "🛎", Café: "☕", Fitness: "🏋️", "Rooftop pool": "🏊", "Pet friendly": "🐾", Garden: "🌿", Bar: "🍸", Casino: "🎰", Spa: "💆", Kitchen: "🍳", "Washing machine": "🧺", Balcony: "🌇", "Air conditioning": "❄️", "Carved balcony": "🏛", "Old town view": "⛪", Kitchenette: "🍳", "Sea view": "🌊", Pool: "🏊" };
+
+// ======================= render: shell =======================
+function render() {
+  const v = $("#view");
+  if (S.screen === "home") v.innerHTML = homeView();
+  if (S.screen === "venue") v.innerHTML = venueView();
+  if (S.screen === "checkout") v.innerHTML = checkoutView();
+  if (S.screen === "confirmation") v.innerHTML = confirmationView();
+  if (S.screen === "fulfil") v.innerHTML = fulfilView();
+  $("#nav").style.display = S.screen === "home" ? "" : "none";
+  $("#fab").classList.toggle("hide", S.screen !== "home" && S.screen !== "venue");
+  $("#fab").style.bottom = S.screen === "home" ? "96px" : "104px";
+  renderBookBar();
+}
+function go(screen, extra = {}) { Object.assign(S, { screen }, extra); render(); $("#view").scrollTop = 0; }
+function renderNav() {
+  $("#nav").innerHTML = Object.entries(I.nav).map(([k, svg], i) => k === "Add" ? `<button><span class="add">${svg}</span></button>` : `<button class="${i === 0 ? "on" : ""}">${svg}${k}</button>`).join("");
+}
+function renderBookBar() {
+  document.querySelectorAll(".bookbar").forEach((e) => e.remove());
+  if (S.screen !== "venue") return;
+  const v = venue(S.venueId);
+  const inCart = S.cart.venueId === v.id && cartCount();
+  const bar = document.createElement("div");
+  bar.className = "bookbar";
+  bar.innerHTML = inCart
+    ? `<div class="t">${esc(roomName(item(S.cart.lines[0].itemId).name))} · ${item(S.cart.lines[0].itemId).meta.nights} nights<b>${money(cartSubtotal())}</b></div><button class="gbtn" onclick="go('checkout')">Continue booking</button>`
+    : `<div class="t">from<b>${money(v.meta.fromPerNight)} <span style="font-size:12px;color:var(--muted);font-weight:500">/ night</span></b></div><button class="gbtn" onclick="document.getElementById('rooms').scrollIntoView({behavior:'smooth'})">Choose room</button>`;
+  $("#screen").appendChild(bar);
+}
+
+// ======================= home =======================
+function listingCard(v, i) {
+  const m = v.meta;
+  const badge = m.vip === "SUPER VIP" ? `<span class="badge">SUPER VIP</span>` : m.vip === "VIP+" ? `<span class="badge vp">VIP+</span>` : m.vip ? `<span class="badge v">VIP</span>` : "";
+  const title = m.type === "Hotel" ? `${v.name} ${starStr(m.stars) ? `<span class="stars">${starStr(m.stars)}</span>` : ""}` : esc(v.name);
+  return `<button class="card" onclick="openVenue('${v.id}')">
+    <div class="cimg"><img src="${v.image}" alt="">${badge}<span class="heart">${I.heart}</span><div class="dots"><i></i><i></i><i></i><i></i></div></div>
+    <div class="cbody">
+      <div class="pr"><b>${money(m.fromPerNight)}</b><span class="cur"><span class="on">₾</span><span>$</span></span><span class="pn">/ night</span></div>
+      <div class="ctitle">${title}</div>
+      <div class="specs">
+        <span>${I.area} ${m.type === "Hotel" ? "26–92" : m.rooms === 1 ? "32" : "55–68"} m²</span>
+        <span>${I.door} ${m.type === "Hotel" ? "Rooms" : m.rooms + " rooms"}</span>
+        <span>${I.bed} ${m.type === "Hotel" ? "King / Twin" : m.rooms}</span>
+      </div>
+      <div class="cfoot"><span class="loc">${I.pin} ${esc(v.area)} · ${dist(v)}</span><span style="color:var(--green);font-weight:600">★ ${v.rating.toFixed(1)}</span><span class="dt">18 Oct, ${String(9 + (i % 3)).padStart(2, "0")}:${String(12 + i * 7).slice(-2)}</span></div>
+    </div>
+  </button>`;
+}
+function homeView() {
+  const near = [...S.data.venues].sort((a, b) => km(S.data.location, a) - km(S.data.location, b));
+  const vip = S.data.venues.filter((v) => v.meta.type === "Hotel");
+  const tiles = [["hotel", "Hotels"], ["daily", "Apartment for daily rent"], ["sea", "Seaside Daily Rentals"], ["cottage", "Daily Cottage Rentals"], ["apt", "Developers apartments"]];
+  return `
+  <div class="hdr"><span>${I.logo}</span><span class="r">${I.menu}<span class="acc">L</span></span></div>
+  <div class="filters">
+    <button class="fld"><div><small>Transaction type</small><b>Daily rent</b></div>${I.down}</button>
+    <button class="fld"><div><small>Real estate type</small><b>Hotel, Apartment</b></div>${I.down}</button>
+    <button class="fld"><div><small>Dates</small><b>23 – 25 Oct</b></div>${I.down}</button>
+    <button class="fld"><div><small>Guests</small><b>2 adults</b></div>${I.down}</button>
+    <button class="fld wide"><span class="pin">${I.pin}</span><div><small>Location</small><b>Tbilisi · near ${esc(S.data.location.label.split(",")[0])}</b></div></button>
+  </div>
+  <div class="row2"><button class="outline">${I.filter} Detailed filter <span class="n">1</span></button><button class="sq">${I.trash}</button></div>
+  <div class="aiwrap">
+    <button class="gbtn" onclick="go('home')">${I.search} Search</button>
+    <button class="aibanner" onclick="openChat()"><span class="sp">✦</span><div><b>Book with myhome AI</b><span>Say where and when — AI finds the room, adds extras and books it. You confirm with Face ID.</span></div><span class="go">›</span></button>
+  </div>
+  <div class="tiles">${tiles.map(([k, n]) => `<div class="tile"><div class="ic">${I.tiles[k]}</div>${n}</div>`).join("")}</div>
+  <div class="sec"><h2>🚀 SUPER VIP</h2><span class="arrows"><span>‹</span><span style="color:#222">›</span></span></div>
+  <div class="carousel">${vip.map(listingCard).join("")}</div>
+  <div class="sec"><h2>Daily rent near you</h2><a>See all ${S.data.venues.length * 37}</a></div>
+  <div class="list">${near.map(listingCard).join("")}</div>`;
+}
+
+// ======================= property =======================
+function openVenue(id) { go("venue", { venueId: id }); }
+function mapSvg(v) {
+  return `<svg viewBox="0 0 360 170" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+    <rect width="360" height="170" fill="#eef0eb"/>
+    <path d="M-10 140 C 60 120, 120 150, 190 128 S 300 100, 370 120" stroke="#b9d7ee" stroke-width="16" fill="none"/>
+    <g stroke="#fff" stroke-width="9" fill="none"><path d="M-10 40 L370 70"/><path d="M80 -10 L120 180"/><path d="M250 -10 L210 180"/><path d="M-10 95 L370 85"/></g>
+    <path d="M40 -10 L330 180" stroke="#ffe7a6" stroke-width="11"/>
+    <g fill="#d4e8cf"><rect x="140" y="12" width="60" height="30" rx="5"/><rect x="280" y="20" width="56" height="40" rx="5"/></g>
+    <text x="250" y="132" font-size="9" fill="#7aa" font-family="Inter">Mtkvari</text>
+    <text x="95" y="56" font-size="9" fill="#888" font-family="Inter" transform="rotate(33 95 56)">${esc(v.area)}</text>
+    <circle cx="180" cy="78" r="22" fill="rgba(38,181,113,.18)"/>
+    <path d="M180 92 C 172 82, 168 76, 168 70 a12 12 0 0 1 24 0 c0 6 -4 12 -12 22z" fill="#26b571" stroke="#fff" stroke-width="2"/><circle cx="180" cy="70" r="4" fill="#fff"/>
+  </svg>`;
+}
+function venueView() {
+  const v = venue(S.venueId), m = v.meta;
+  const items = S.data.catalog.filter((i) => i.venueId === v.id && i.id.endsWith("__" + S.dateWin));
+  const anyItem = items[0];
+  const gal = m.gallery || [v.image];
+  return `
+  <div class="gal"><div class="strip">${gal.map((g) => `<img src="${g}" alt="">`).join("")}</div>
+    <div class="btns"><button class="circle" onclick="go('home')">${I.back}</button><span style="display:flex;gap:8px"><span class="circle">${I.heart}</span><span class="circle">${I.share}</span></span></div>
+    <span class="cnt">${I.photo} 1/${gal.length + 12}</span>
+  </div>
+  <div class="phead">
+    <div class="meta"><span class="id">ID: ${20419000 + v.name.length * 731}</span><span>👁 ${1200 + v.name.length * 43}</span><span>18 Oct 2026</span></div>
+    <h1>${esc(v.name)} ${m.type === "Hotel" ? `<span class="stars" style="font-size:14px">${starStr(m.stars)}</span>` : ""}</h1>
+    <div class="addr">${I.pin} ${esc(m.address)} · ${dist(v)} from you</div>
+  </div>
+  <div class="pbox">
+    <div class="pr"><b>${money(m.fromPerNight)}</b><span class="cur"><span class="on">₾</span><span>$</span></span><span class="pn">/ night · from</span></div>
+    <div class="rate"><span class="score">${v.rating.toFixed(1)}</span> Excellent · ${m.reviews.toLocaleString()} reviews · ${m.type === "Hotel" ? esc(v.cuisine) : "Daily rent"}</div>
+  </div>
+  <div class="bigspecs">
+    <div>${I.area}<b>${anyItem ? anyItem.meta.size : "–"} m²</b>Area</div>
+    <div>${I.guests}<b>${anyItem ? anyItem.meta.guests : 2}</b>Guests</div>
+    <div>${I.door}<b>${m.type === "Hotel" ? m.floors ? m.floors + " fl." : "Hotel" : m.floor}</b>${m.type === "Hotel" ? "Building" : "Floor"}</div>
+    <div>${I.cal}<b>${m.checkIn}</b>Check-in</div>
+  </div>
+  <div class="ps" id="rooms"><h3>Choose a room</h3>
+    <div class="datesel">
+      <div class="${S.dateWin === "we" ? "on" : ""}" onclick="S.dateWin='we';render()">This weekend<b>Fri 23 – Sun 25 Oct</b></div>
+      <div class="${S.dateWin === "wd" ? "on" : ""}" onclick="S.dateWin='wd';render()">Weekdays<b>Mon 19 – Wed 21 Oct</b></div>
+    </div>
+    ${items.map((i) => `<button class="room" onclick="openItem('${i.id}')"><img src="${i.image}" alt="">
+      <div class="t"><b>${esc(roomName(i.name))}</b>
+        <div class="rs">${esc(i.meta.bed)} · ${i.meta.size} m² · ${esc(i.meta.view)}<br>${i.meta.guests} guests · ${i.meta.nights} nights</div>
+        <div class="rp"><div><b>${money(i.meta.perNight)}</b><small>/ night · ${money(i.price)} total</small></div><span class="sel">Select</span></div>
+      </div></button>`).join("")}
+  </div>
+  <div class="ps"><h3>Amenities</h3><div class="amen">${m.amenities.map((a) => `<span><i>${AMEN_IC[a] || "✓"}</i>${esc(a)}</span>`).join("")}</div></div>
+  <div class="ps"><h3>Description</h3><p>${esc(m.about)}</p><p style="margin-top:8px;color:var(--muted);font-size:13px">Check-in from ${m.checkIn} · Check-out until ${m.checkOut} · Free cancellation until 48h before arrival.</p></div>
+  <div class="ps"><h3>Location</h3><div class="mapbox">${mapSvg(v)}<span class="lbl">📍 ${esc(m.address)}</span></div></div>
+  <div class="ps" style="padding-bottom:120px"><h3>${m.type === "Hotel" ? "Reservations" : "Owner"}</h3>
+    <div class="host"><span class="av">${m.type === "Hotel" ? "🛎" : "N"}</span><div><b>${m.type === "Hotel" ? esc(v.name) : "Nino K."}</b><small>${m.type === "Hotel" ? "Verified partner · replies in 5 min" : "Owner · on myhome since 2019"}</small></div><span class="call">📞 Call</span></div>
+  </div>`;
+}
+
+// ======================= room sheet =======================
+function openItem(id) {
+  const it = item(id);
+  const st = { opts: new Set() };
+  const scrim = document.createElement("div");
+  scrim.className = "scrim";
+  const groups = [...new Set((it.options || []).map((o) => o.group))];
+  const draw = () => {
+    const total = it.price + [...st.opts].reduce((s, o) => s + it.options.find((x) => x.id === o).price, 0);
+    scrim.innerHTML = `<div class="sheet" onclick="event.stopPropagation()"><div class="body">
+      <img class="itemimg" src="${it.image.replace("w=300", "w=800").replace("h=186", "h=496")}" alt="">
+      <div class="ihead"><h2>${esc(roomName(it.name))}</h2>
+        <div class="specs"><span>${I.cal} ${esc(it.meta.dateLabel)}</span><span>${I.guests} ${it.meta.guests}</span><span>${I.area} ${it.meta.size} m²</span></div>
+        <p>${esc(it.description)}</p>
+        <div class="pr" style="margin-top:8px"><b>${money(it.meta.perNight)}</b><span class="pn">/ night × ${it.meta.nights} = ${money(it.price)}</span></div></div>
+      ${groups.map((g) => `<div class="og"><h4>${esc(g)}</h4>
+        ${it.options.filter((o) => o.group === g).map((o) => `<button class="opt ${st.opts.has(o.id) ? "on" : ""}" data-o="${o.id}"><span class="box"></span>${esc(o.name)}<span class="x">${o.price ? "+" + money(o.price) : "Free"}</span></button>`).join("")}</div>`).join("")}
+    </div>
+    <div class="sheetfoot"><button class="gbtn" id="addbtn">Book · ${money(total)}</button></div></div>`;
+    scrim.querySelectorAll("[data-o]").forEach((b) => b.onclick = () => { st.opts.has(b.dataset.o) ? st.opts.delete(b.dataset.o) : st.opts.add(b.dataset.o); draw(); });
+    scrim.querySelector("#addbtn").onclick = () => { S.cart = { venueId: it.venueId, lines: [{ itemId: it.id, qty: 1, optionIds: [...st.opts] }] }; scrim.remove(); go("checkout"); };
+  };
+  scrim.onclick = () => scrim.remove();
+  draw();
+  $("#screen").appendChild(scrim);
+}
+
+// ======================= booking (checkout) =======================
+function checkoutView() {
+  const v = venue(S.cart.venueId);
+  if (!v || !S.cart.lines.length) return `<div class="pagehead"><button onclick="go('home')">${I.back}</button><h1>Booking</h1></div><p style="padding:16px">No room selected.</p>`;
+  const it = item(S.cart.lines[0].itemId), m = it.meta;
+  const sub = cartSubtotal(), total = sub + v.deliveryFee + S.data.serviceFee;
+  const g = S.guest;
+  return `
+  <div class="pagehead"><button onclick="go('venue',{venueId:'${v.id}'})">${I.back}</button><div><h1>Booking</h1><div class="vsub">Daily rent · secure payment</div></div></div>
+  <div class="steps3"><i class="on"></i><i class="on"></i><i></i></div>
+  <div class="block"><div class="pcard"><img src="${v.image}" alt=""><div><b>${esc(v.name)}</b><small>${esc(v.meta.address)}</small><small><span class="score" style="font-size:11px;padding:1px 5px">${v.rating.toFixed(1)}</span> ${v.meta.reviews} reviews</small></div></div></div>
+  <div class="block"><h3>Your stay</h3>
+    <div class="kv">
+      <div>Check-in<b>${esc(ciLabel(m))}, ${v.meta.checkIn}</b></div>
+      <div>Check-out<b>${esc(m.dateLabel.split(" – ")[1])}, ${v.meta.checkOut}</b></div>
+      <div>Nights<b>${m.nights}</b></div><div>Guests<b>${m.guests} adults</b></div>
+    </div></div>
+  <div class="block"><h3>Room</h3>
+    ${S.cart.lines.map((l) => { const i = item(l.itemId); return `<div class="line"><img src="${i.image}" alt=""><div class="nm">${esc(roomName(i.name))}<div class="mods">${esc(i.meta.bed)} · ${i.meta.size} m² · ${money(i.meta.perNight)} × ${i.meta.nights} nights</div>${l.optionIds.length ? `<div class="mods g">+ ${l.optionIds.map((o) => esc(i.options.find((x) => x.id === o).name)).join(", ")}</div>` : ""}</div><span class="lp">${money(linePrice(l))}</span></div>`; }).join("")}
+  </div>
+  <div class="block"><h3>Guest details</h3>
+    <label class="inp"><small>Full name</small><input value="${esc(g.name)}" oninput="S.guest.name=this.value"></label>
+    <label class="inp"><small>Phone</small><input value="${esc(g.phone)}" oninput="S.guest.phone=this.value"></label>
+    <label class="inp"><small>Email</small><input value="${esc(g.email)}" oninput="S.guest.email=this.value"></label>
+    <label class="inp"><small>Special requests (optional)</small><textarea rows="2" placeholder="e.g. high floor, arriving late" oninput="S.guest.note=this.value">${esc(g.note)}</textarea></label>
+  </div>
+  <div class="block"><h3>Payment</h3>
+    <div class="payrow"><span class="visa">VISA</span><div>${esc(S.data.paymentMethod)}<small>Saved card · TBC Bank</small></div><span class="chev">›</span></div>
+  </div>
+  <div class="block"><h3>Price details</h3>
+    <div class="sum"><span>Room · ${m.nights} nights</span><span>${money(it.price * S.cart.lines[0].qty)}</span></div>
+    <div class="sum"><span>Extras</span><span>${money(sub - it.price * S.cart.lines[0].qty)}</span></div>
+    <div class="sum"><span>Booking fee</span><span>${money(S.data.serviceFee)}</span></div>
+    <div class="sum"><span>City tax & VAT</span><span>Included</span></div>
+    <div class="sum total"><span>Total</span><span>${money(total)}</span></div>
+  </div>
+  <div class="block"><div class="policy">✓ Free cancellation until 48h before check-in · Pay now, nothing to pay at the property.</div></div>
+  <div style="padding:12px 16px 30px"><button class="gbtn" id="cobtn" onclick="checkoutPay()">Confirm and pay · ${money(total)}</button></div>`;
+}
+async function checkoutPay() {
+  $("#cobtn").disabled = true;
+  let intent = S.agentPayment && S.cartSignature === sig() ? S.agentPayment : null;
+  if (!intent) {
+    const r = await agent.createOrder(S.cart.lines.map((l) => ({ item_id: l.itemId, qty: l.qty, option_ids: l.optionIds })));
+    if (r.error) { toast(r.error); $("#cobtn").disabled = false; return; }
+    intent = r;
+  }
+  const p = await payWithFaceId(intent);
+  if (p) startFulfilment(p, false);
+  else $("#cobtn").disabled = false;
+}
+
+// ======================= payment (Face ID → confirm) =======================
+async function payWithFaceId(intent) {
+  const r = await AgentPayUI.pay({ root: $("#screen"), agent, payment: intent, accent: "#26b571", merchant: "myhome.ge" });
+  refreshHood();
+  return r;
+}
+
+// ======================= fulfilment: the real hotel reservation process, visualised =======================
+const PMS = { biltmore: ["BLT", "Oracle OPERA Cloud"], stamba: ["STB", "Mews PMS"], rooms_tbilisi: ["RHT", "Mews PMS"], radisson_iveria: ["RBI", "Oracle OPERA Cloud"] };
+function confNo(p, v) {
+  const n = Number(p.id.split("_").pop()) || 1;
+  return `${(PMS[v.id] || ["MH"])[0]}-24-${String(7731 + (n - 1) * 137).slice(-4)}`;
+}
+const pmsName = (v) => v.meta.type === "Hotel" ? (PMS[v.id] || ["", "hotel PMS"])[1] : t().ownerCal;
+let fulfilRun;
+function startFulfilment(p, viaAgent) {
+  const v = venue(p.venue.id), it = item(p.lines[0].itemId), m = it.meta, l = p.lines[0];
+  const hotel = v.meta.type === "Hotel";
+  const conf = confNo(p, v);
+  S.booking = { p, viaAgent, resNo: conf };
+  S.fulfil = { p, v, it, conf, stage: 0 };
+  S.cart = { venueId: null, lines: [] };
+  S.agentPayment = null;
+  closeChat();
+  fulfilRun?.cancel();
+  go("fulfil");
+  const ex = lopts(l);
+  const bf = l.options.some((o) => /breakfast/i.test(o));
+  const x = {
+    hotel, v: vN(v), r: rN(it), d: dL(m), pms: pmsName(v), left: 2 + (v.name.length % 3), pn: money(m.perNight), g: m.guests, n: m.nights,
+    rate: `${hotel ? "BAR" : "DAILY"}${bf ? "-BB" : "-RO"}`, tot: money(p.total), pm: p.paymentMethod, id: p.id, conf, guest: S.guest.name,
+    ci: ciL(m), co: coL(m), ex, bf, email: S.guest.email, roomP: money(it.price),
+    exP: l.options.map((o, j) => `${ex[j]} +${money(it.options.find((q) => q.name === o).price)}`).join(" · "),
+  };
+  const ms = [2600, 2600, 2400, 3000, 2600, 2600];
+  const head = t().head(x);
+  fulfilRun = AgentPayUI.stages($("#fstages"), t().st(x).map(([title, detail], i) => ({ title, detail, ms: ms[i] })), {
+    accent: "#26b571",
+    onStage: (i) => {
+      if (S.screen !== "fulfil") return;
+      S.fulfil.stage = i;
+      $("#fstages").children[i]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      $("#fbig").textContent = head[i][0];
+      $("#fsub").textContent = head[i][1];
+      const k = $("#keycard");
+      k.dataset.stage = i;
+      if (i >= 1) { $("#kstatus").textContent = `${t().hold} · 15:00`; startHoldTimer(); }
+      if (i >= 2) $("#kpay").innerHTML = t().paidK(money(p.total));
+      if (i >= 3) { $("#kconf").textContent = conf; clearInterval(holdT); $("#kstatus").textContent = t().confirmed; k.classList.add("ok"); }
+      if (i >= 4) document.querySelectorAll(".folio .fx").forEach((r, j) => setTimeout(() => r.classList.add("in"), j * 350));
+      if (i >= 5) $("#kmail").classList.add("in");
+      $("#fnights").querySelectorAll("i").forEach((n) => n.classList.toggle("held", i >= 1));
+    },
+    onDone: () => setTimeout(() => { if (S.screen === "fulfil") { $("#fbig").textContent = t().bookedBig; setTimeout(() => S.screen === "fulfil" && go("confirmation"), 1300); } }, 300),
+  });
+}
+let holdT;
+function startHoldTimer() {
+  if (holdT) clearInterval(holdT);
+  let s = 900;
+  holdT = setInterval(() => { s--; const el = $("#kstatus"); if (!el || !el.textContent.startsWith(t().hold)) return clearInterval(holdT); el.textContent = `${t().hold} · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }, 1000);
+}
+function fulfilView() {
+  const { p, v, it } = S.fulfil, m = it.meta, l = p.lines[0];
+  const d0 = new Date(m.checkIn), nights = [...Array(m.nights + 1)].map((_, k) => { const d = new Date(d0); d.setDate(d.getDate() + k); return d; });
+  return `
+  <div class="fhero"><img src="${v.meta.gallery?.[1] || v.image}" alt=""><div class="fshade"></div>
+    <div class="ftop"><button class="circle" onclick="go('home')">${I.close}</button><span class="fpms">🔒 ${esc(t().liveLink)} · ${esc(pmsName(v))}</span></div>
+    <div class="fhd"><div class="big" id="fbig">${esc(t().head({ v: vN(v), ex: [] })[0][0])}</div><div id="fsub">${esc(t().head({ v: vN(v), ex: [] })[0][1])}</div></div>
+  </div>
+  <div class="fbody">
+    <div class="keycard" id="keycard" data-stage="0">
+      <div class="kt"><span>${I.logo.replace('width="124" height="36"', 'width="82" height="24"')}</span><span class="kst" id="kstatus">${esc(t().checking)}</span></div>
+      <b class="kh">${esc(vN(v))}</b>
+      <div class="kr">${esc(rN(it))} · ${esc(bedL(m))}</div>
+      <div class="nights" id="fnights">${nights.map((d, k) => `<i class="${k === m.nights ? "out" : ""}"><small>${t().days[d.getDay()]}</small>${d.getDate()}<small>${k === 0 ? `${t().cin} ${v.meta.checkIn}` : k === m.nights ? `${t().cout} ${v.meta.checkOut}` : `${t().night} ${k + 1}`}</small></i>`).join("")}</div>
+      <div class="kf"><div><small>${esc(t().confNo)}</small><b id="kconf">•••-••-••••</b></div><div style="text-align:right"><small>${esc(t().payment)}</small><b id="kpay">${esc(t().pending)}</b></div></div>
+    </div>
+    <div class="fsec">${esc(t().happening)}</div>
+    <div id="fstages"></div>
+    ${S.booking.viaAgent ? `<div class="agentpaid" style="margin:12px 0 0">${t().bookedBy}</div>` : ""}
+    <div class="folio"><div class="fh">${esc(t().folio)}</div>
+      <div class="fr"><span>${esc(rN(it))} · ${money(m.perNight)} × ${m.nights}</span><span>${money(it.price)}</span></div>
+      ${l.options.map((o, j) => `<div class="fr fx"><span>+ ${esc(lopts(l)[j])}</span><span>${money(it.options.find((x) => x.name === o).price)}</span></div>`).join("")}
+      <div class="fr"><span>${esc(t().feeLong)}</span><span>${money(p.serviceFee)}</span></div>
+      <div class="fr tot"><span>${esc(t().prepaid)}</span><span>${money(p.total)}</span></div>
+      <div class="kmail" id="kmail">${esc(t().mail(S.guest.email, vN(v)))}</div>
+    </div>
+  </div>`;
+}
+function confirmationView() {
+  const { p, viaAgent, resNo } = S.booking;
+  const v = venue(p.venue.id), it = item(p.lines[0].itemId), m = it.meta, T = t(), hotel = v.meta.type === "Hotel";
+  return `
+  <div class="pagehead"><button onclick="go('home')">${I.close}</button><h1>${esc(T.cTitle)}</h1></div>
+  <div class="conf">
+    <div class="ok">${I.tick}</div>
+    <h1>${esc(T.cBig)}</h1>
+    <div class="sub">${T.cSub(esc(vN(v)), esc(ciL(m)), v.meta.checkIn, esc(S.guest.email))}</div>
+    <div class="resno"><small>${esc(T.cNo(vN(v), hotel))}</small><b>${resNo}</b></div>
+    ${viaAgent ? `<div class="agentpaid">${T.cAgent}</div>` : ""}
+    <div class="pcard" style="margin-bottom:12px"><img src="${v.image}" alt=""><div><b>${esc(vN(v))}</b><small>${esc(addrL(v))}</small><small>${esc(dL(m))} · ${esc(T.nightsGuests(m.nights, m.guests))}</small></div></div>
+    <div class="kv" style="margin-bottom:12px">
+      <div>${T.cIn}<b>${esc(ciL(m))} · ${esc(T.cFrom(v.meta.checkIn))}</b></div><div>${T.cOut}<b>${esc(coL(m))} · ${esc(T.cUntil(v.meta.checkOut))}</b></div>
+      <div>${T.cGuest}<b>${esc(S.guest.name)}</b></div><div>${T.cStatus}<b style="color:var(--green)">${T.cOk}</b></div>
+    </div>
+    ${p.lines.map((l) => `<div class="line"><span class="q">${l.qty}×</span><div class="nm">${esc(rN(item(l.itemId)))}${l.options.length ? `<div class="mods g">+ ${esc(lopts(l).join(", "))}</div>` : ""}</div><span class="lp">${money(l.qty * l.unitPrice)}</span></div>`).join("")}
+    <div class="sum" style="margin-top:6px"><span>${T.fee}</span><span>${money(p.serviceFee)}</span></div>
+    <div class="sum total"><span>${esc(T.cPaid(p.paymentMethod))}</span><span>${money(p.total)}</span></div>
+    <div class="ps" style="padding:16px 0 0"><div class="mapbox" style="height:130px">${mapSvg(v)}<span class="lbl">📍 ${esc(addrL(v))}</span></div></div>
+    <div style="display:flex;gap:10px;margin-top:14px"><button class="gbtn sec2">${T.dir}</button><button class="gbtn" onclick="go('home')">${T.home}</button></div>
+  </div>`;
+}
+
+// ======================= AI chat =======================
+function openChat(prefill) {
+  if (S.chatOpen) return;
+  S.chatOpen = true;
+  const c = document.createElement("div");
+  c.className = "chat";
+  c.id = "chat";
+  c.innerHTML = `
+    <div class="chathead"><button onclick="closeChat()">${I.back}</button><div class="logo">✦</div>
+      <div style="flex:1;min-width:0"><b>myhome AI</b><small><i></i>${esc(t().sub(locShort()))}</small></div>
+      <div class="langsw"><button class="${LANG === "en" ? "on" : ""}" onclick="setLang('en')">EN</button><button class="${LANG === "ka" ? "on" : ""}" onclick="setLang('ka')">ქარ</button></div></div>
+    <div class="msgs" id="msgs">
+      <div class="welcome"><div class="logo">✦</div><h2>${esc(t().title)}</h2><p>${esc(t().intro)}</p>
+        <div class="sugg">${t().chips.map((c) => `<button>${esc(c)}</button>`).join("")}</div></div>
+    </div>
+    <form class="composer" id="composer"><button type="button" class="mic" id="mic">${I.mic}</button><input id="q" placeholder="${esc(t().ph)}" autocomplete="off" /><button class="send">${I.send}</button></form>`;
+  $("#screen").appendChild(c);
+  c.querySelectorAll(".sugg button").forEach((b) => b.onclick = () => send(b.textContent));
+  $("#composer").onsubmit = (e) => { e.preventDefault(); send($("#q").value); };
+  setupMic();
+  if (chatLog.length) { $(".welcome").remove(); chatLog.forEach((el) => $("#msgs").appendChild(el)); scrollChat(); }
+  if (prefill) $("#q").value = prefill;
+  setTimeout(() => $("#q")?.focus(), 250);
+}
+function closeChat() {
+  const c = $("#chat");
+  if (c) { chatLog = [...$("#msgs").children].filter((e) => !e.classList.contains("welcome")); c.remove(); }
+  S.chatOpen = false;
+}
+let chatLog = [];
+const scrollChat = () => { const m = $("#msgs"); if (m) m.scrollTop = m.scrollHeight; };
+function bubble(cls, text) { const b = document.createElement("div"); b.className = "b " + cls; b.textContent = text; $("#msgs").appendChild(b); scrollChat(); return b; }
+
+async function send(text) {
+  text = text.trim();
+  if (!text || S.busy) return;
+  S.busy = true;
+  if (/[Ⴀ-ჿ]/.test(text) !== ka()) { LANG = ka() ? "en" : "ka"; localStorage.setItem("agentpay_lang", LANG); AgentPayUI.lang = LANG; }
+  $("#q").value = "";
+  $(".welcome")?.remove();
+  bubble("me", text);
+  const tb = AgentPayUI.thinking($("#msgs"), { accent: "#26b571", onUpdate: scrollChat });
+  const replyHolder = document.createElement("div");
+  replyHolder.style.display = "contents";
+  $("#msgs").appendChild(replyHolder);
+  hoodClear(text);
+  await agent.send(text, (e) => {
+    hoodEvent(e);
+    if (e.type === "status") tb.status(e.text);
+    if (e.type === "thinking") tb.thought(e.text);
+    if (e.type === "tool") tb.step(e.label, !e.result?.error);
+    if (e.type === "payment") tb.settled().then(() => orderCard(e.payment));
+    if (e.type === "reply" && e.text) tb.settled().then(() => { const b = document.createElement("div"); b.className = "b ai"; b.textContent = e.text.replace("Your order from", "Your booking at").replace("შეკვეთა მზადაა", "ჯავშანი მზადაა"); replyHolder.appendChild(b); scrollChat(); });
+    if (e.type === "error") tb.settled().then(() => bubble("ai", "⚠ " + e.text));
+    if (e.type === "done") tb.done();
+  }).catch(() => { tb.done(); bubble("ai", t().conn); });
+  await tb.settled();
+  S.busy = false;
+  refreshHood();
+}
+
+function orderCard(p) {
+  // Mirror the agent's proposal into the app's own booking, so "Review booking" shows it too.
+  S.cart = { venueId: p.venue.id, lines: p.lines.map((l) => ({ itemId: l.itemId, qty: l.qty, optionIds: l.options.map((n) => item(l.itemId).options.find((o) => o.name === n).id) })) };
+  S.agentPayment = p;
+  S.cartSignature = sig();
+  const T = t();
+  document.querySelectorAll(".ocard:not(.paid) .acts").forEach((a) => a.innerHTML = `<div class="note">${esc(T.replaced)}</div>`);
+
+  const v = venue(p.venue.id), it = item(p.lines[0].itemId), m = it.meta;
+  const card = document.createElement("div");
+  card.className = "ocard";
+  card.innerHTML = `
+    <div class="oimg"><img src="${it.image.replace("w=300", "w=600").replace("h=186", "h=372")}" alt=""><span class="badge">${v.meta.type === "Hotel" ? starStr(v.meta.stars) + " " + T.hotel : T.daily}</span></div>
+    <div class="vh"><b>${esc(pvN(p.venue))}</b><small>${esc(addrL(v))} · ${dist(v)} ${T.fromYou} · <span style="color:var(--green);font-weight:600">★ ${v.rating.toFixed(1)}</span></small></div>
+    <div class="ls">${p.lines.map((l) => { const i = item(l.itemId); return `<div class="line"><span class="q">${l.qty}×</span><div class="nm">${esc(rN(i))}<div class="mods">${esc(bedL(i.meta))} · ${i.meta.size} ${T.m2} · ${esc(viewL(i.meta))}</div>${l.options.length ? `<div class="mods g">+ ${esc(lopts(l).join(", "))}</div>` : ""}${l.note ? `<div class="mods">“${esc(l.note)}”</div>` : ""}</div><span class="lp">${money(l.qty * l.unitPrice)}</span></div>`; }).join("")}</div>
+    <div class="facts">
+      <div>${T.dates}<b>${esc(dL(m))}</b></div><div>${T.stay}<b>${esc(T.nightsGuests(m.nights, m.guests))}</b></div>
+    </div>
+    <div class="sums">
+      <div class="sum"><span>${T.room} · ${money(m.perNight)} × ${m.nights}</span><span>${money(it.price * p.lines[0].qty)}</span></div>
+      <div class="sum"><span>${T.extras}</span><span>${money(p.subtotal - it.price * p.lines[0].qty)}</span></div>
+      <div class="sum"><span>${T.fee}</span><span>${money(p.serviceFee + p.deliveryFee)}</span></div>
+      <div class="sum total"><span>${T.total}</span><span>${money(p.total)}</span></div>
+    </div>
+    <div class="pm"><span class="visa">VISA</span>${esc(p.paymentMethod)}<span style="margin-left:auto;color:var(--blue);font-weight:500">${T.change}</span></div>
+    <div class="acts">
+      <button class="gbtn pay">${T.pay} ${money(p.total)}</button>
+      <button class="gbtn sec2 edit">${T.review}</button>
+      <div class="note">${T.safe}</div>
+    </div>`;
+  card.querySelector(".pay").onclick = async (ev) => {
+    ev.target.disabled = true;
+    const paid = await payWithFaceId(p);
+    if (!paid) { ev.target.disabled = false; return; }
+    card.classList.add("paid");
+    card.querySelector(".acts").innerHTML = `<div class="paidrow">${esc(t().paidRow(money(paid.total)))}</div>`;
+    bubble("ai", t().paidMsg(rN(it), pvN(p.venue), dL(m)));
+    setTimeout(() => startFulfilment(paid, true), 1200);
+  };
+  card.querySelector(".edit").onclick = () => { closeChat(); go("checkout"); };
+  $("#msgs").appendChild(card);
+  scrollChat();
+}
+
+function setupMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const mic = $("#mic");
+  if (!SR) { mic.style.display = "none"; return; }
+  let rec;
+  mic.onclick = () => {
+    if (rec) { rec.stop(); return; }
+    rec = new SR(); rec.lang = ka() ? "ka-GE" : "en-US"; rec.interimResults = true;
+    mic.classList.add("rec");
+    rec.onresult = (e) => { $("#q").value = [...e.results].map((r) => r[0].transcript).join(""); };
+    rec.onend = () => { mic.classList.remove("rec"); rec = null; if ($("#q").value.trim()) send($("#q").value); };
+    rec.start();
+  };
+}
+
+function toast(t) { const d = document.createElement("div"); d.className = "toast"; d.textContent = t; $("#screen").appendChild(d); setTimeout(() => d.remove(), 3200); }
+
+// ======================= under the hood =======================
+function hoodClear(text) { $("#hood-trace").innerHTML = `<div class="ev st">${USER_ID} → <b>${esc(text)}</b></div>`; }
+function hoodEvent(e) {
+  const t = $("#hood-trace");
+  const div = document.createElement("div");
+  if (e.type === "status") { div.className = "ev st"; div.textContent = "⋯ agent: " + e.text; }
+  else if (e.type === "thinking") { div.className = "ev st"; div.style.color = "#a9e0c4"; div.textContent = "💭 " + e.text; }
+  else if (e.type === "tool") { div.className = "ev"; div.innerHTML = `<b>${esc(e.tool)}</b>(${esc(JSON.stringify(e.args))})\n→ ${esc(JSON.stringify(e.result).slice(0, 420))}`; }
+  else if (e.type === "payment") { div.className = "ev pay"; div.innerHTML = `<b>payment intent</b> ${esc(e.payment.id)} · ${money(e.payment.total)} · <span class="s-awaiting">awaiting_user_confirmation</span>`; }
+  else if (e.type === "reply") { div.className = "ev st"; div.textContent = "reply: " + e.text; }
+  else if (e.type === "error") { div.className = "ev"; div.style.borderColor = "#f04"; div.textContent = "error: " + e.text; }
+  else return;
+  t.appendChild(div);
+  t.parentElement.scrollTop = t.parentElement.scrollHeight;
+}
+async function refreshHood() {
+  const s = await fetch("/debug/myhome").then((r) => r.json());
+  $("#hood-agent").innerHTML = `${s.mode === "gemini" ? `Gemini <b style="color:#fff">${esc(s.model)}</b>` : `<b style="color:#ffc24b">MOCK</b> (no GEMINI_API_KEY)`} · function calling · per-tenant memory`;
+  const u = Object.entries(s.memory);
+  $("#hood-mem").innerHTML = u.length ? u.map(([id, m]) => `<div><b style="color:#fff">${esc(id)}</b> · ${m.history.length} messages<br>${m.preferences.map((p) => `<span class="tag">${esc(p)}</span>`).join("") || '<span style="color:#7a8a9a">no saved preferences</span>'}</div>`).join("") : '<span style="color:#7a8a9a">empty</span>';
+  $("#hood-pay").innerHTML = s.payments.length ? s.payments.slice(-4).reverse().map((p) => `<div style="margin-bottom:6px">${esc(p.id)} · ${money(p.total)} · ${p.history.map((h) => `<span class="s-${h.status.split("_")[0]}">${h.status}</span><span style="color:#7a8a9a">(${h.by})</span>`).join(" → ")}</div>`).join("") : '<span style="color:#7a8a9a">none</span>';
+}
+$("#reset").onclick = async () => { await fetch("/debug/myhome/reset", { method: "POST" }); location.reload(); };
+$("#hoodtoggle").onclick = () => { $("#hood").classList.toggle("off"); $("#hoodtoggle").textContent = $("#hood").classList.contains("off") ? "Show under the hood" : "Hide under the hood"; };
+
+// ======================= boot =======================
+(async () => {
+  S.data = await fetch("/demo-data/myhome").then((r) => r.json());
+  AgentPayUI.lang = LANG;
+  agent = AgentPay.init({ key: "pk_myhome_demo", userId: USER_ID, location: S.data.location });
+  $("#fab").onclick = () => openChat();
+  renderNav();
+  render();
+  refreshHood();
+  if (new URLSearchParams(location.search).has("clean")) { $("#hood").classList.add("off"); $("#hoodtoggle").textContent = "Show under the hood"; }
+})();
+</script>
+</body>
+</html>

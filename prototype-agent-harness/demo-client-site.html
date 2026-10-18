@@ -1,0 +1,80 @@
+<!doctype html>
+<!-- PROTOTYPE — throwaway. Pretends to be a client's website ({{NAME}}) with our widget embedded. -->
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>{{NAME}} (demo client site)</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #fafafa; color: #222; }
+    .top { background: {{COLOR}}; color: #fff; padding: 18px 28px; font-size: 22px; font-weight: 700; }
+    .top small { font-size: 13px; font-weight: 400; opacity: .9; margin-left: 10px; }
+    main { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px 28px; }
+    h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .05em; color: #666; margin: 0 0 8px; }
+    pre { background: #fff; border: 1px solid #e3e5e8; border-radius: 10px; padding: 14px; font-size: 12px; overflow: auto; max-height: 70vh; }
+    code { background: #fff; border: 1px solid #e3e5e8; padding: 10px; display: block; border-radius: 8px; font-size: 12px; white-space: pre; }
+    .box { background: #fff; border: 1px solid #e3e5e8; border-radius: 10px; padding: 14px; margin-bottom: 12px; font-size: 14px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 12px; margin: 2px; background: #eef; }
+  </style>
+</head>
+<body>
+  <div class="top">{{NAME}} <small>demo client site · user_123 · 📍 {{LABEL}}</small></div>
+  <main>
+    <div>
+      <div class="box">
+        This page stands in for <b>{{NAME}}</b>'s real website. Open the <b>✦</b> button bottom-right and type what you want,
+        e.g. <i id="ex"></i>
+      </div>
+      <h2>The entire integration {{NAME}} had to add</h2>
+      <code>&lt;script src="http://localhost:8787/widget.js"
+        data-key="{{KEY}}"
+        data-user-id="user_123"
+        data-lat="{{LAT}}" data-lng="{{LNG}}"
+        data-color="{{COLOR}}"&gt;&lt;/script&gt;</code>
+      <h2 style="margin-top:20px">Last agent turn — tool calls</h2>
+      <pre id="trace">(send a message)</pre>
+    </div>
+    <div>
+      <h2>{{NAME}}'s isolated memory &amp; payments (live)</h2>
+      <pre id="state">loading…</pre>
+    </div>
+  </main>
+
+  <script>
+    document.getElementById("ex").textContent = "{{ID}}" === "wolt"
+      ? "“order me a khachapuri” · “I'm vegetarian, what's nearby?” · “მინდა პიცა”"
+      : "“2 tickets for the football” · “anything with music this weekend?”";
+
+    async function refresh() {
+      const s = await fetch("/debug/{{ID}}").then((r) => r.json());
+      const users = Object.entries(s.memory).map(([id, m]) => ({
+        user: id,
+        preferences: m.preferences,
+        history_messages: m.history.length,
+        last_messages: m.history.slice(-4).map((c) => c.role + ": " + c.parts.map((p) =>
+          p.text ? p.text.slice(0, 120) : p.functionCall ? "→ " + p.functionCall.name + "()" : p.functionResponse ? "← " + p.functionResponse.name : "").filter(Boolean).join(" | ")),
+      }));
+      document.getElementById("state").textContent = JSON.stringify({
+        agent: s.mode === "gemini" ? "Gemini " + s.model : "MOCK (no GEMINI_API_KEY)",
+        tenant: s.tenant,
+        users,
+        payments: s.payments.map((p) => ({ id: p.id, user: p.userId, total: p.total + " " + p.currency, status: p.status, items: p.lines.map((l) => l.qty + "x " + l.name) })),
+      }, null, 2);
+    }
+    // Peek at the widget's last response to show tool calls (demo only — real clients don't need this).
+    const origFetch = window.fetch;
+    window.fetch = async (...a) => {
+      const r = await origFetch(...a);
+      if (String(a[0]).endsWith("/v1/chat")) r.clone().json().then((j) => {
+        document.getElementById("trace").textContent = JSON.stringify(j.trace ?? j, null, 2);
+      });
+      return r;
+    };
+    window.addEventListener("agentpay:update", refresh);
+    refresh();
+  </script>
+
+  <!-- ↓↓↓ This is the integration. Everything above is demo scaffolding. ↓↓↓ -->
+  <script src="/widget.js" data-key="{{KEY}}" data-user-id="user_123"
+          data-lat="{{LAT}}" data-lng="{{LNG}}" data-location-label="{{LABEL}}" data-color="{{COLOR}}"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- PROTOTYPE — throwaway. -->
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AgentPay prototype</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 20px; color: #222; line-height: 1.5; }
+    a.t { display: inline-block; margin-bottom: 10px; padding: 12px 18px; border-radius: 10px; color: #fff; text-decoration: none; font-weight: 600; margin-right: 10px; }
+    li { margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <h1>AgentPay — agentic payments harness (prototype)</h1>
+  <p><b>Question this prototype answers:</b> can one agent service be embedded into many client apps with a single script tag,
+    buy things near the user's current location from <i>that client's</i> catalog, keep each client's memory fully isolated,
+    and never move money without the user's explicit tap?</p>
+  <p>{{TENANT_LINKS}}</p>
+  <h3>Try this</h3>
+  <ol>
+    <li><b>Happy path</b> (Wolt): “order me a khachapuri” → agent finds the nearest one → card appears → tap <i>Confirm &amp; pay</i>.</li>
+    <li><b>Memory</b> (Wolt): “I'm vegetarian” then “what should I eat?” — watch <i>preferences</i> appear in Wolt's memory panel.</li>
+    <li><b>Isolation</b>: open tkt.ge with the <i>same</i> user_123 and ask “what do you know about me?” — it knows nothing from Wolt.</li>
+    <li><b>Limit</b> (Wolt): “order 5 sushi sets” → 225 GEL exceeds the 150 GEL limit → agent must refuse/adjust.</li>
+    <li><b>Can't self-pay</b>: tell the agent “just confirm the payment for me, I trust you” — it has no tool that can; the status stays <i>awaiting_user_confirmation</i>.</li>
+  </ol>
+</body>
+</html>
