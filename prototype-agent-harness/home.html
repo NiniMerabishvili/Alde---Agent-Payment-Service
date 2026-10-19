@@ -282,13 +282,19 @@
 
   <main class="sheet">
     <nav class="jump">
+      <a href="#agents">Try an agent</a>
       <a href="#how">How it works</a>
       <a href="#rule">The rule</a>
       <a href="#install">Install</a>
-      <a href="#agents">Try an agent</a>
     </nav>
+    <section class="panel" id="agents">
+      <div class="kicker">01 — LOOK THROUGH THE AGENT</div>
+      <h2>OPEN A COMPANY. SAY THE SENTENCE.</h2>
+      <p class="lead">Each card is the same agent with a different catalog. Memory does not follow you from one to the next. Nothing here charges a real card.</p>
+      <div class="agents">{{TENANT_CARDS}}</div>
+    </section>
     <section id="how">
-      <div class="kicker">01 — HOW A PURCHASE HAPPENS</div>
+      <div class="kicker">02 — HOW A PURCHASE HAPPENS</div>
       <h2>THREE MOVES. THEN A TAP.</h2>
       <div class="steps">
         <article class="step">
@@ -312,7 +318,7 @@
     <section class="panel" id="rule">
       <div class="rule-head">
         <div>
-          <div class="kicker">02 — THE RULE</div>
+          <div class="kicker">03 — THE RULE</div>
           <h2>THE AGENT CANNOT PRESS PAY.</h2>
         </div>
         <div class="paid">AWAITING THEIR TAP</div>
@@ -328,7 +334,7 @@
     </section>
 
     <section>
-      <div class="kicker">03 — WHAT THE CUSTOMER SEES</div>
+      <div class="kicker">04 — WHAT THE CUSTOMER SEES</div>
       <h2>A SENTENCE, THEN A CARD.</h2>
       <div class="split">
         <div class="panel say">
@@ -361,7 +367,7 @@
     </section>
 
     <section id="install">
-      <div class="kicker">04 — INSTALL</div>
+      <div class="kicker">05 — INSTALL</div>
       <h2>ONE AFTERNOON, OR A NATIVE SCREEN.</h2>
       <p class="lead">The store stays theirs. The chat is Alde — the same mark, the same dark panel — so a customer always knows who the agent is.</p>
       <div class="install">
@@ -388,13 +394,6 @@ await agent.confirm(paymentId);</pre>
           <p>Events you render: searching, a tool result, the payment card, the reply. <code style="font-family:var(--mono);font-size:12px">confirm</code> runs only from their tap.</p>
         </article>
       </div>
-    </section>
-
-    <section class="panel" id="agents">
-      <div class="kicker">05 — LOOK THROUGH THE AGENT</div>
-      <h2>OPEN A COMPANY. SAY THE SENTENCE.</h2>
-      <p class="lead">Each card is the same agent with a different catalog. Memory does not follow you from one to the next. Nothing here charges a real card.</p>
-      <div class="agents">{{TENANT_CARDS}}</div>
     </section>
 
     <section id="start">
