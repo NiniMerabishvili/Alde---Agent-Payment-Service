@@ -250,7 +250,7 @@
         <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#000" opacity=".4" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#000"/><rect x="25" y="4.5" width="1.5" height="4" rx=".75" fill="#000" opacity=".4"/></svg>
       </span></div>
       <div class="view" id="view"></div>
-      <button class="fab" id="fab">✦ Order with AI</button>
+      <button class="fab" id="fab">Ask Alde</button>
       <nav class="nav" id="nav"></nav>
     </div>
   </div>
@@ -274,7 +274,7 @@ const L = {
     sub: (a) => `Orders & pays for you · delivering to ${a}`, title: "What are you craving?",
     intro: "Tell me what you want — I'll find the nearest place, build the order and get it ready to pay.",
     chips: ["2 small shawarmas from the nearest Marge without onion and peppers + a Coca-Cola Classic 0.5L", "Cappuccino and a club sandwich", "Order a pepperoni pizza"],
-    ph: "Message Wolt AI…", items: "Items", delivery: "Delivery", service: "Service fee", total: "Total", pay: "Pay", review: "Review in checkout",
+    ph: "Message Alde…", items: "Items", delivery: "Delivery", service: "Service fee", total: "Total", pay: "Pay", review: "Review in checkout",
     safe: "🔒 Nothing is charged until you confirm.", change: "Change", replaced: "Replaced by the updated order below", paidRow: (a) => `✓ Paid ${a} · order placed`,
     done: (v, a, b) => `Done! ${v} is preparing your order — arriving in about ${a}–${b} min.`, deliveryTo: (a) => `delivery to ${a}`, min: "min",
     conn: "⚠ Connection problem. Please try again.",
@@ -283,7 +283,7 @@ const L = {
     sub: (a) => `შეუკვეთავს და გადაიხდის თქვენთვის · მიტანა: ${a}`, title: "რას ისურვებდით?",
     intro: "მითხარით, რა გსურთ — ვიპოვი უახლოეს ადგილს, შევადგენ შეკვეთას და მოვამზადებ გადასახდელად.",
     chips: ["2 პატარა შაურმა უახლოესი მარჯიდან, ხახვის და წიწაკის გარეშე + 1 კოკა-კოლა კლასიკი 0.5ლ", "კაპუჩინო და კლაბ სენდვიჩი", "შემიკვეთე პეპერონი პიცა"],
-    ph: "მისწერეთ Wolt AI-ს…", items: "პროდუქტები", delivery: "მიტანა", service: "მომსახურების საფასური", total: "სულ", pay: "გადახდა", review: "შეკვეთის გადახედვა",
+    ph: "მისწერეთ Alde-ს…", items: "პროდუქტები", delivery: "მიტანა", service: "მომსახურების საფასური", total: "სულ", pay: "გადახდა", review: "შეკვეთის გადახედვა",
     safe: "🔒 თანხა არ ჩამოიჭრება, სანამ არ დაადასტურებთ.", change: "შეცვლა", replaced: "ჩანაცვლდა ქვემოთ განახლებული შეკვეთით", paidRow: (a) => `✓ გადახდილია ${a} · შეკვეთა გაფორმდა`,
     done: (v, a, b) => `მზადაა! ${v} უკვე ამზადებს თქვენს შეკვეთას — მოგიტანთ დაახლოებით ${a}–${b} წუთში.`, deliveryTo: (a) => `მიტანა: ${a}`, min: "წთ",
     conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
@@ -397,12 +397,12 @@ function homeView() {
     <div class="loc">${I.pin}<span>${esc(S.data.location.label)}</span>${I.down}</div>
     <div class="avatar">L</div>
   </div>
-  <button class="search" onclick="openChat()">${I.search} Search in Wolt…<span class="ai">✦ Ask AI</span></button>
+  <button class="search" onclick="openChat()">${I.search} Search in Wolt…<span class="ai">Alde</span></button>
   <button class="hero" onclick="openChat()">
     <span class="spark">✦</span>
     <h3>Just say what you're craving.</h3>
-    <p>Wolt AI finds it nearby, builds your order and checks out — in one message.</p>
-    <span class="cta">✦ Order with AI</span>
+    <p>Alde finds it nearby, builds your order and checks out — in one message.</p>
+    <span class="cta">Ask Alde</span>
   </button>
   <div class="cats">${cats.map(([e, n]) => `<div class="cat"><div class="ic">${e}</div>${n}</div>`).join("")}</div>
   <div class="sec"><h2>Popular right now</h2><a>See all</a></div>
@@ -592,7 +592,7 @@ function trackingView() {
     <div class="big" id="tbig">${ka() ? "შეკვეთა გაიგზავნა" : "Order sent"}</div>
     <div class="eta2" id="teta">${ka() ? `მოვა ${p.venue.etaMax}–${p.venue.etaMax + 5} წუთში` : `Arriving in ${p.venue.etaMax}–${p.venue.etaMax + 5} min`}</div>
     <div class="vsub" id="tsub" style="margin:4px 0 16px">${ka() ? "ველოდებით რესტორნის დადასტურებას" : "Waiting for the restaurant to accept"}</div>
-    ${viaAgent ? `<div class="agentpaid">${ka() ? "✦ Wolt AI-მ შეუკვეთა და გადაიხადა ერთ საუბარში · თქვენ დაადასტურეთ Face ID-ით" : "✦ Ordered &amp; paid by Wolt AI in one conversation · you confirmed with Face ID"}</div>` : ""}
+    ${viaAgent ? `<div class="agentpaid">${ka() ? "✦ Alde-მ შეუკვეთა და გადაიხადა ერთ საუბარში · თქვენ დაადასტურეთ Face ID-ით" : "✦ Ordered &amp; paid by Alde in one conversation · you confirmed with Face ID"}</div>` : ""}
     <div id="wstages" style="margin-bottom:8px"></div>
     <div class="block" style="padding:0"><h3>Order ${esc(p.id.replace("pi_wolt_", "#W"))}</h3>
       ${p.lines.map((l) => `<div class="line"><span class="q">${l.qty}×</span><div class="nm">${esc(lname(l))}${l.options.length ? `<div class="mods">${esc(lopts(l).join(", "))}</div>` : ""}</div><span class="pr">${money(l.qty * l.unitPrice)}</span></div>`).join("")}
@@ -609,11 +609,11 @@ function openChat(prefill) {
   c.className = "chat";
   c.id = "chat";
   c.innerHTML = `
-    <div class="chathead"><button onclick="closeChat()">${I.back}</button><div class="logo">✦</div>
-      <div style="flex:1;min-width:0"><b>Wolt AI</b><small><i></i>${esc(t().sub(locShort()))}</small></div>
+    <div class="chathead"><button onclick="closeChat()">${I.back}</button><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg>
+      <div style="flex:1;min-width:0"><b>Alde</b><small><i></i>${esc(t().sub(locShort()))}</small></div>
       <div class="langsw"><button class="${LANG === "en" ? "on" : ""}" onclick="setLang('en')">EN</button><button class="${LANG === "ka" ? "on" : ""}" onclick="setLang('ka')">ქარ</button></div></div>
     <div class="msgs" id="msgs">
-      <div class="welcome"><div class="logo">✦</div><h2>${esc(t().title)}</h2><p>${esc(t().intro)}</p>
+      <div class="welcome"><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg><h2>${esc(t().title)}</h2><p>${esc(t().intro)}</p>
         <div class="sugg">${t().chips.map((c) => `<button>${esc(c)}</button>`).join("")}</div></div>
     </div>
     <form class="composer" id="composer"><button type="button" class="mic" id="mic">${I.mic}</button><input id="q" placeholder="${esc(t().ph)}" autocomplete="off" /><button class="send">${I.send}</button></form>`;

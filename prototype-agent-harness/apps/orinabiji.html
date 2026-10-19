@@ -317,7 +317,7 @@
         <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#000" opacity=".4" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#000"/><rect x="25" y="4.5" width="1.5" height="4" rx=".75" fill="#000" opacity=".4"/></svg>
       </span></div>
       <div class="view" id="view"></div>
-      <button class="fab" id="fab"><b>✦</b> Shop with AI</button>
+      <button class="fab" id="fab">Ask Alde</button>
       <nav class="nav" id="nav"></nav>
     </div>
   </div>
@@ -429,7 +429,7 @@ function header() {
   return `<div class="hdr">
     <div class="hrow"><button class="burger">${I.burger}</button><div class="logo">${MARK}<span>ნაბიჯი</span></div>
       <button class="acct" onclick="go('cart')">${I.cart}${cartCount() ? `<span class="n">${cartCount()}</span>` : ""}</button></div>
-    <div class="srch"><button class="in" onclick="openChat()">Search Products<span class="ai">✦ Ask AI</span></button><button class="go" onclick="openChat()">${I.search}</button></div>
+    <div class="srch"><button class="in" onclick="openChat()">Search Products<span class="ai">Alde</span></button><button class="go" onclick="openChat()">${I.search}</button></div>
   </div>
   <button class="addr" onclick="openBranches()">${I.pin}<div class="t"><div>${esc(S.data.location.label)}</div><small>From 2 Nabiji ${esc(v.area)} · ${v.etaMin}–${v.etaMax} min · ${money(v.deliveryFee)}</small></div><span class="chev">${I.down}</span></button>`;
 }
@@ -470,8 +470,8 @@ function homeView() {
   <button class="banner" onclick="openChat()">
     <span class="bag2">🥖</span><span class="bag">🛍️</span>
     <h3 class="ka">შეუკვეთე მარტივად</h3>
-    <p>New: just type your shopping list — 2 Nabiji AI fills the basket from the nearest store.</p>
-    <span class="cta">✦ Try 2 Nabiji AI</span>
+    <p>New: just type your shopping list — Alde fills the basket from the nearest store.</p>
+    <span class="cta">✦ Try Alde</span>
   </button>
   <div class="dots"><i class="on"></i><i></i><i></i><i></i></div>
   <div class="h2">Categories</div>
@@ -546,7 +546,7 @@ function lineRow(l, editable) {
 }
 function cartView() {
   const v = venue(S.cart.venueId);
-  if (!v) return `<div class="pagehead"><button onclick="go('home')">${I.back}</button><h1>Cart</h1></div><div class="empty"><div>🛒</div>Your cart is empty.<br><br><button class="btn" onclick="openChat()">✦ Fill it with 2 Nabiji AI</button></div>`;
+  if (!v) return `<div class="pagehead"><button onclick="go('home')">${I.back}</button><h1>Cart</h1></div><div class="empty"><div>🛒</div>Your cart is empty.<br><br><button class="btn" onclick="openChat()">✦ Fill it with Alde</button></div>`;
   const sub = cartSubtotal();
   return `<div class="pagehead"><button onclick="go('home')">${I.back}</button><div><h1>Cart</h1><div class="sub">2 Nabiji ${esc(v.area)} · ${cartCount()} items</div></div></div>
   <div class="block">${S.cart.lines.map((l) => lineRow(l, true)).join("")}
@@ -602,11 +602,11 @@ const L = {
     sub: (a) => `Fills your basket & pays · ${a}`, title: "What do you need today?",
     intro: "Type or say your shopping list — I'll pick the nearest 2 Nabiji, fill the basket and get it ready to pay.",
     chips: ["Order 2 Sante milk 1L, a Shoti bread, 10 eggs and a Borjomi 1L from the nearest 2 Nabiji", "Buy sulguni cheese, imeruli cheese, eggs and butter for khachapuri", "Get bananas with green, 2 Nabeghlavi and a Lavashi"],
-    ph: "Message 2 Nabiji AI…", nearest: "Nearest store", km: "km", min: "min", delivery: "Delivery", express: "Express", products: "Products", service: "Service fee", total: "Total",
+    ph: "Message Alde…", nearest: "Nearest store", km: "km", min: "min", delivery: "Delivery", express: "Express", products: "Products", service: "Service fee", total: "Total",
     pay: "Pay", review: "Review cart & delivery time", safe: "🔒 Nothing is charged until you confirm.", change: "Change", replaced: "Replaced by the updated basket below",
     paidRow: (a) => `✓ Paid ${a} · order placed`, done: (v, a, b) => `Done! ${v} is picking your groceries — delivery in about ${a}–${b} min.`, conn: "⚠ Connection problem. Please try again.",
     order: "Order", paidWith: "Paid", arriving: (a) => `Arriving in ${a}–${a + 5} min`, justNow: "Delivered just now",
-    agentPaid: "✦ Basket built & paid by 2 Nabiji AI in one message · you confirmed with Face ID",
+    agentPaid: "✦ Basket built & paid by Alde in one message · you confirmed with Face ID",
     head: (vn, no, n, bags, dist) => [
       ["Order sent to the store", `${vn} received ${no}`], ["Picker Nino is on it", `Grabbing a basket at ${vn}`],
       ["Picking your groceries", `Nino is collecting ${n} items from the shelves`], ["Bagged & receipt printed", `${bags} sealed bag${bags > 1 ? "s" : ""} waiting at the counter`],
@@ -624,11 +624,11 @@ const L = {
     sub: (a) => `შეავსებს კალათას და გადაიხდის · ${a}`, title: "რა გჭირდებათ დღეს?",
     intro: "დაწერეთ ან თქვით საყიდლების სია — ავარჩევ უახლოეს „ორ ნაბიჯს“, შევავსებ კალათას და მოვამზადებ გადასახდელად.",
     chips: ["შემიკვეთე 2 სანტე რძე 1ლ, 1 შოთი პური, 10 კვერცხი და 1 ბორჯომი 1ლ უახლოესი ორი ნაბიჯიდან", "იყიდე სულგუნი, იმერული ყველი, კვერცხი და კარაქი ხაჭაპურისთვის", "იყიდე მწვანე ბანანი, 2 ნაბეღლავი და 1 ლავაში"],
-    ph: "მისწერეთ 2 Nabiji AI-ს…", nearest: "უახლოესი მაღაზია", km: "კმ", min: "წთ", delivery: "მიტანა", express: "ექსპრესი", products: "პროდუქტები", service: "მომსახურების საფასური", total: "სულ",
+    ph: "მისწერეთ Alde-ს…", nearest: "უახლოესი მაღაზია", km: "კმ", min: "წთ", delivery: "მიტანა", express: "ექსპრესი", products: "პროდუქტები", service: "მომსახურების საფასური", total: "სულ",
     pay: "გადახდა", review: "კალათა და მიტანის დრო", safe: "🔒 თანხა არ ჩამოიჭრება, სანამ არ დაადასტურებთ.", change: "შეცვლა", replaced: "ჩანაცვლდა ქვემოთ განახლებული კალათით",
     paidRow: (a) => `✓ გადახდილია ${a} · შეკვეთა გაფორმდა`, done: (v, a, b) => `მზადაა! ${v} უკვე აგროვებს თქვენს პროდუქტებს — მოგიტანთ დაახლოებით ${a}–${b} წუთში.`, conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
     order: "შეკვეთა", paidWith: "გადახდილია", arriving: (a) => `მოგიტანთ ${a}–${a + 5} წუთში`, justNow: "ახლახან მოგიტანეს",
-    agentPaid: "✦ კალათა შეავსო და გადაიხადა 2 Nabiji AI-მ ერთი შეტყობინებით · თქვენ დაადასტურეთ Face ID-ით",
+    agentPaid: "✦ კალათა შეავსო და გადაიხადა Alde-მ ერთი შეტყობინებით · თქვენ დაადასტურეთ Face ID-ით",
     head: (vn, no, n, bags, dist) => [
       ["შეკვეთა გაიგზავნა მაღაზიაში", `${vn} — შეკვეთა ${no} მიღებულია`], ["ამკრეფი ნინო შეკვეთაზეა", `ნინომ კალათა აიღო · ${vn}`],
       ["პროდუქტების აკრეფა", `ნინო თაროებიდან აგროვებს ${n} პროდუქტს`], ["შეფუთულია, ჩეკი დაიბეჭდა", `${bags} დალუქული პარკი სალაროსთან გელოდებათ`],
@@ -765,11 +765,11 @@ function openChat(prefill) {
   c.className = "chat";
   c.id = "chat";
   c.innerHTML = `
-    <div class="chathead"><button onclick="closeChat()">${I.back}</button><div class="lg">${MARK}<i>✦</i></div>
-      <div style="flex:1;min-width:0"><b>2 Nabiji AI</b><small><span class="on"></span>${esc(t().sub(homeLabel().split(",").pop().trim()))}</small></div>
+    <div class="chathead"><button onclick="closeChat()">${I.back}</button><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg>
+      <div style="flex:1;min-width:0"><b>Alde</b><small><span class="on"></span>${esc(t().sub(homeLabel().split(",").pop().trim()))}</small></div>
       <div class="langsw"><button class="${LANG === "en" ? "on" : ""}" onclick="setLang('en')">EN</button><button class="${LANG === "ka" ? "on" : ""}" onclick="setLang('ka')">ქარ</button></div></div>
     <div class="msgs" id="msgs">
-      <div class="welcome"><div class="lg">${MARK}</div><h2>${esc(t().title)}</h2><p>${esc(t().intro)}</p>
+      <div class="welcome"><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg><h2>${esc(t().title)}</h2><p>${esc(t().intro)}</p>
         <div class="sugg">${t().chips.map((x) => `<button>${esc(x)}</button>`).join("")}</div></div>
     </div>
     <form class="composer" id="composer"><button type="button" class="mic" id="mic">${I.mic}</button><input id="q" placeholder="${esc(t().ph)}" autocomplete="off" /><button class="send">${I.send}</button></form>`;

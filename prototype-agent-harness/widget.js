@@ -9,7 +9,6 @@
   const script = document.currentScript;
   const cfg = script.dataset;
   const API = new URL(script.src).origin;
-  const color = cfg.color || "#111";
   let location = cfg.lat ? { lat: +cfg.lat, lng: +cfg.lng, label: cfg.locationLabel } : null;
   if (!location && navigator.geolocation)
     navigator.geolocation.getCurrentPosition((p) => (location = { lat: p.coords.latitude, lng: p.coords.longitude }));
@@ -19,34 +18,40 @@
   const root = host.attachShadow({ mode: "open" });
   root.innerHTML = `
   <style>
-    * { box-sizing: border-box; font-family: system-ui, sans-serif; }
-    .fab { position: fixed; right: 20px; bottom: 20px; width: 56px; height: 56px; border-radius: 50%; border: 0;
-           background: ${color}; color: #fff; font-size: 24px; cursor: pointer; box-shadow: 0 4px 14px #0003; z-index: 99999; }
-    .panel { position: fixed; right: 20px; bottom: 88px; width: 360px; height: 520px; background: #fff; border-radius: 14px;
-             box-shadow: 0 8px 30px #0003; display: none; flex-direction: column; overflow: hidden; z-index: 99999; }
+    @import url("https://fonts.googleapis.com/css2?family=Michroma&family=Space+Grotesk:wght@400;500&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Georgian:wght@400;500&display=swap");
+    * { box-sizing: border-box; font-family: "Space Grotesk", "Noto Sans Georgian", system-ui, sans-serif; }
+    .fab { position: fixed; right: 20px; bottom: 20px; height: 52px; padding: 0 16px 0 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35);
+           background: #08090b; color: #eceef2; cursor: pointer; z-index: 99999; display: flex; align-items: center; gap: 8px;
+           box-shadow: 0 8px 30px #0008; letter-spacing: .12em; font-family: Michroma, sans-serif; font-size: 12px; }
+    .fab svg { width: 16px; height: 16px; fill: #eceef2; }
+    .panel { position: fixed; right: 20px; bottom: 84px; width: 360px; height: 520px; background: #08090b; color: #eceef2; border-radius: 18px;
+             border: 1px solid rgba(255,255,255,.12); box-shadow: 0 30px 60px -20px #000; display: none; flex-direction: column; overflow: hidden; z-index: 99999; }
     .panel.open { display: flex; }
-    header { background: ${color}; color: #fff; padding: 12px 14px; font-weight: 600; font-size: 14px; }
-    header small { display: block; font-weight: 400; opacity: .85; }
-    .log { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: #f6f7f9; }
+    header { display: flex; align-items: center; gap: 10px; padding: 14px 14px 12px; border-bottom: 1px solid rgba(255,255,255,.1); background: #08090b; }
+    header svg { width: 16px; height: 16px; fill: #eceef2; flex: none; }
+    header b { font-family: Michroma, sans-serif; font-weight: 400; letter-spacing: .14em; font-size: 13px; }
+    header small { display: block; font-family: "JetBrains Mono", monospace; font-weight: 400; font-size: 10px; letter-spacing: .08em; color: rgba(236,238,242,.5); margin-top: 3px; }
+    .log { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: transparent; }
     .msg { max-width: 85%; padding: 8px 11px; border-radius: 12px; font-size: 14px; line-height: 1.35; white-space: pre-wrap; }
-    .user { align-self: flex-end; background: ${color}; color: #fff; }
-    .agent { align-self: flex-start; background: #fff; border: 1px solid #e3e5e8; }
-    .card { align-self: stretch; background: #fff; border: 2px solid ${color}; border-radius: 12px; padding: 10px 12px; font-size: 13px; }
+    .user { align-self: flex-end; background: #f2f3f5; color: #111; }
+    .agent { align-self: flex-start; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); }
+    .card { align-self: stretch; background: rgba(12,13,16,.9); border: 1px solid rgba(255,255,255,.14); border-radius: 14px; padding: 12px; font-size: 13px; }
     .card b { font-size: 15px; } .card .row { display: flex; justify-content: space-between; margin: 3px 0; }
     .card .btns { display: flex; gap: 8px; margin-top: 8px; }
     .card button { flex: 1; padding: 8px; border-radius: 8px; border: 0; cursor: pointer; font-weight: 600; }
-    .pay { background: ${color}; color: #fff; } .cancel { background: #eee; }
-    .status { font-weight: 600; margin-top: 6px; }
-    form { display: flex; border-top: 1px solid #e3e5e8; }
-    input { flex: 1; border: 0; padding: 12px; font-size: 14px; outline: none; }
-    form button { border: 0; background: none; color: ${color}; font-weight: 700; padding: 0 14px; cursor: pointer; }
-    .typing { font-size: 12px; color: #888; padding-left: 4px; }
+    .pay { background: #f2f3f5; color: #111; } .cancel { background: rgba(255,255,255,.08); color: rgba(236,238,242,.7); }
+    .status { font-weight: 600; margin-top: 6px; font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .06em; }
+    form { display: flex; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid rgba(255,255,255,.12); }
+    input { flex: 1; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.04); color: #fff; border-radius: 12px; padding: 12px; font-size: 14px; outline: none; font-family: "JetBrains Mono", monospace; }
+    input::placeholder { color: rgba(255,255,255,.35); }
+    form button { width: 42px; height: 42px; border: 0; border-radius: 50%; background: #f2f3f5; color: #111; font-weight: 700; cursor: pointer; }
+    .typing { font-size: 12px; color: rgba(236,238,242,.5); padding-left: 4px; font-family: "JetBrains Mono", monospace; }
   </style>
-  <button class="fab" title="Buy with AI">✦</button>
+  <button class="fab" title="Alde"><svg viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg>ALDE</button>
   <div class="panel">
-    <header>AI checkout assistant<small>Type what you want — I'll find it nearby and pay for you.</small></header>
+    <header><svg viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg><div><b>ALDE</b><small>THE AGENT · SAY WHAT YOU WANT</small></div></header>
     <div class="log"></div>
-    <form><input placeholder="e.g. order me a khachapuri" /><button>Send</button></form>
+    <form><input placeholder="Tell Alde what you want…" /><button aria-label="Send">↑</button></form>
   </div>`;
 
   const $ = (s) => root.querySelector(s);

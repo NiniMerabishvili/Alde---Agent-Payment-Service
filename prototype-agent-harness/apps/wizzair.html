@@ -322,7 +322,7 @@
         <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" opacity=".5"/><rect x="2" y="2" width="18" height="9" rx="2"/><rect x="25" y="4.5" width="1.5" height="4" rx=".75" opacity=".5"/></svg>
       </span></div>
       <div class="view" id="view"></div>
-      <button class="fab" id="fab">✦ Book with AI</button>
+      <button class="fab" id="fab">Ask Alde</button>
       <nav class="nav" id="nav"></nav>
     </div>
   </div>
@@ -391,14 +391,14 @@ const T = {
     sub: (a) => `Books & pays for you · nearest airport ${a}`, title: "Where do you want to fly?",
     intro: "Tell me the trip — I'll pick the flight from your nearest airport, add bags and get it ready to pay.",
     chips: ["book a seat on Oct 21 and return on 27 Oct", "Book a one-way flight from Kutaisi to Budapest this Friday with a 20kg checked bag", "Book 2 tickets from Tbilisi to Larnaca with seat selection"],
-    ph: "Message WIZZ AI…", direct: "Direct", nearest: (a, k) => `Nearest airport ${a} · ${k} km`,
+    ph: "Message Alde…", direct: "Direct", nearest: (a, k) => `Nearest airport ${a} · ${k} km`,
     fare: (rt) => rt ? "Return fare · 2 flights" : "One-way fare", adult: (n) => n > 1 ? "Adults" : "Adult", basic: "Basic · small personal item",
     extras: "Flight & extras", admin: "Administration fee", included: "Included", total: "Total", pay: "Pay", review: "Review booking",
     safe: "🔒 Nothing is charged until you confirm.", change: "Change", replaced: "Replaced by the updated booking below", paidRow: (a) => `✓ Paid ${a} · booking confirmed`,
     done: (m) => m.roundTrip ? `Done! You're booked: ${m.flightNo} to ${cTo(m)} on ${fd(m.date)} at ${m.dep}, back on ${m.ret.flightNo} on ${fd(m.ret.date)} at ${m.ret.dep}. Both boarding passes are ready.` : `Done! You're booked on ${m.flightNo} to ${cTo(m)}, ${fd(m.date)} at ${m.dep}. Your boarding pass is ready.`,
     conn: "⚠ Connection problem. Please try again.",
     // fulfilment
-    code: "Booking code", agentpaid: "✦ Booked &amp; paid by WIZZ AI in one conversation · you confirmed with Face ID", seat: "seat",
+    code: "Booking code", agentpaid: "✦ Booked &amp; paid by Alde in one conversation · you confirmed with Face ID", seat: "seat",
     head: (x) => [
       ["Holding your fare", `${x.total} re-priced with Wizz Air inventory`], ["Payment received", `${x.total} captured · ${x.pm}`],
       ["Booking created", `Confirmation code ${x.pnr}`], ["Issuing e-tickets", x.flights], ["Assigning seats", x.seatsTxt],
@@ -424,13 +424,13 @@ const T = {
     sub: (a) => `დაჯავშნის და გადაიხდის თქვენ მაგივრად · უახლოესი აეროპორტი: ${a}`, title: "სად გსურთ გაფრენა?",
     intro: "მითხარით, სად და როდის მიფრინავთ — უახლოესი აეროპორტიდან შევარჩევ ფრენას, დავამატებ ბარგს და მოვამზადებ გადასახდელად.",
     chips: ["დამიჯავშნე ადგილი 21 ოქტომბერს და დაბრუნება 27 ოქტომბერს", "დამიჯავშნე ფრენა ქუთაისიდან ბუდაპეშტში ამ პარასკევს 20კგ ჩასაბარებელი ბარგით", "დამიჯავშნე 2 ბილეთი თბილისიდან ლარნაკაში ადგილის არჩევით"],
-    ph: "მისწერეთ WIZZ AI-ს…", direct: "პირდაპირი", nearest: (a, k) => `უახლოესი აეროპორტი ${a} · ${k} კმ`,
+    ph: "მისწერეთ Alde-ს…", direct: "პირდაპირი", nearest: (a, k) => `უახლოესი აეროპორტი ${a} · ${k} კმ`,
     fare: (rt) => rt ? "ორმხრივი ბილეთი · 2 ფრენა" : "ცალმხრივი ბილეთი", adult: (n) => n > 1 ? "მგზავრი" : "მგზავრი", basic: "Basic · მცირე პირადი ჩანთა",
     extras: "ფრენა და დამატებები", admin: "ადმინისტრაციული მოსაკრებელი", included: "შედის ფასში", total: "სულ", pay: "გადახდა", review: "ჯავშნის გადახედვა",
     safe: "🔒 თანხა არ ჩამოიჭრება, სანამ არ დაადასტურებთ.", change: "შეცვლა", replaced: "ჩანაცვლდა ქვემოთ განახლებული ჯავშნით", paidRow: (a) => `✓ გადახდილია ${a} · ჯავშანი დადასტურებულია`,
     done: (m) => m.roundTrip ? `მზადაა! დაგიჯავშნეთ ${m.flightNo} — ${inCity(cTo(m))} ${fd(m.date)}, ${m.dep}-ზე და დაბრუნება ${m.ret.flightNo} — ${fd(m.ret.date)}, ${m.ret.dep}-ზე. ორივე ბორდინგ-ბარათი მზადაა.` : `მზადაა! დაგიჯავშნეთ ${m.flightNo} — ${inCity(cTo(m))} ${fd(m.date)}, ${m.dep}-ზე. ბორდინგ-ბარათი მზადაა.`,
     conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
-    code: "ჯავშნის კოდი", agentpaid: "✦ დაჯავშნა და გადაიხადა WIZZ AI-მ ერთ საუბარში · თქვენ დაადასტურეთ Face ID-ით", seat: "ადგილი",
+    code: "ჯავშნის კოდი", agentpaid: "✦ დაჯავშნა და გადაიხადა Alde-მ ერთ საუბარში · თქვენ დაადასტურეთ Face ID-ით", seat: "ადგილი",
     head: (x) => [
       ["ტარიფს ვაფიქსირებთ", `${x.total} — ფასი გადამოწმდა Wizz Air-ის სისტემაში`], ["გადახდა მიღებულია", `${x.total} ჩამოიჭრა · ${x.pm}`],
       ["ჯავშანი შეიქმნა", `ჯავშნის კოდი ${x.pnr}`], ["ელ. ბილეთების გაცემა", x.flights], ["ადგილების მინიჭება", x.seatsTxt],
@@ -529,8 +529,8 @@ function homeView() {
   <button class="aibanner" onclick="openChat()">
     <span class="spark">✦</span>
     <h3>Just say where you want to fly.</h3>
-    <p>WIZZ AI finds the flight from your nearest airport, adds bags and books it — in one message.</p>
-    <span class="cta">✦ Book with AI</span>
+    <p>Alde finds the flight from your nearest airport, adds bags and books it — in one message.</p>
+    <span class="cta">Ask Alde</span>
   </button>
   ${roundTrips().filter((i) => i.meta.from === s.from).length ? `<div class="sec"><h2>Round trips from ${esc(from.name)}</h2></div>
   <div style="padding:0 14px 20px;display:flex;flex-direction:column;gap:10px">${roundTrips().filter((i) => i.meta.from === s.from).map(rtCard).join("")}</div>` : ""}
@@ -806,11 +806,11 @@ function openChat(prefill) {
   c.id = "chat";
   const near = nearest()[0];
   c.innerHTML = `
-    <div class="chathead"><button onclick="closeChat()" style="color:var(--navy)">${I.back}</button><div class="logo">✦</div>
-      <div style="flex:1;min-width:0"><b>WIZZ AI</b><small><i></i>${esc(t().sub(`${ka() ? near.ka?.name || near.name : near.name} (${near.meta.code})`))}</small></div>
+    <div class="chathead"><button onclick="closeChat()" style="color:var(--navy)">${I.back}</button><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg>
+      <div style="flex:1;min-width:0"><b>Alde</b><small><i></i>${esc(t().sub(`${ka() ? near.ka?.name || near.name : near.name} (${near.meta.code})`))}</small></div>
       <div class="langsw"><button class="${LANG === "en" ? "on" : ""}" onclick="setLang('en')">EN</button><button class="${LANG === "ka" ? "on" : ""}" onclick="setLang('ka')">ქარ</button></div></div>
     <div class="msgs" id="msgs">
-      <div class="welcome"><div class="logo">✦</div><h2>${t().title}</h2><p>${t().intro}</p>
+      <div class="welcome"><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg><h2>${t().title}</h2><p>${t().intro}</p>
         <div class="sugg">
           ${t().chips.map((c) => `<button>${esc(c)}</button>`).join("")}
                   </div></div>

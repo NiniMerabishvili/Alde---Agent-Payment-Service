@@ -357,7 +357,7 @@
         <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#000" opacity=".4" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#000"/><rect x="25" y="4.5" width="1.5" height="4" rx=".75" fill="#000" opacity=".4"/></svg>
       </span></div>
       <div class="view" id="view"></div>
-      <button class="fab" id="fab">✦ Ask tkt.ge AI</button>
+      <button class="fab" id="fab">✦ Ask Alde</button>
       <nav class="nav" id="nav"></nav>
     </div>
   </div>
@@ -382,7 +382,7 @@ const L = {
     intro: "Tell me the event, day and seats — I'll find the tickets, build the order and get it ready to pay.",
     chips: ["Buy 3 tickets for movie The odyssey on 18 Oct in Cavea City Mall Saburtalo on 22:00 in central seats in any of the last three rows",
       "Buy 2 tickets for the Dinamo Tbilisi match this Sunday, East Stand", "Get 2 tickets for La Traviata this Saturday, parterre, with ticket insurance"],
-    ph: "Message tkt.ge AI…", tickets: "Tickets", service: "Service fee", total: "Total", pay: "Pay", review: "Review in checkout", change: "Change",
+    ph: "Message Alde…", tickets: "Tickets", service: "Service fee", total: "Total", pay: "Pay", review: "Review in checkout", change: "Change",
     safe: "🔒 Nothing is charged until you confirm.", replaced: "Replaced by the updated order below", away: (d) => `${d} away`,
     paidRow: (a) => `✓ Paid ${a} · e-tickets issued`, conn: "⚠ Connection problem. Please try again.",
     done: (n, t, st) => `Done! Your ${n} e-tickets for ${t} are in My tickets${st ? ` — ${st}` : ""}. Enjoy!`,
@@ -401,7 +401,7 @@ const L = {
     confirming: "Confirming with the box office…", soldTo: (what) => `${what} — sold to you`, soldShort: "Sold to you",
     mailSent: "✉ E-mail sent", smsSent: "💬 SMS sent",
     going: "You're going!", etCount: (n, a, card) => `${n} e-ticket${n > 1 ? "s" : ""} · paid ${a} with ${card}`, of: (a, b) => `${a} of ${b}`,
-    viewSeats: "🪑 View your seats on the hall map", wallet: "Add to Apple Wallet", byAI: "✦ Found &amp; booked by tkt.ge AI in one message · you confirmed the payment with Face ID",
+    viewSeats: "🪑 View your seats on the hall map", wallet: "Add to Apple Wallet", byAI: "✦ Found &amp; booked by Alde in one message · you confirmed the payment with Face ID",
     order: "Order", paid: "Paid", zone: "Zone",
   },
   ka: {
@@ -409,7 +409,7 @@ const L = {
     intro: "მითხარით ღონისძიება, დღე და ადგილები — ვიპოვი ბილეთებს, შევადგენ შეკვეთას და მოვამზადებ გადასახდელად.",
     chips: ["იყიდე 3 ბილეთი ფილმზე „ოდისეა“ 18 ოქტომბერს, კავეა სითი მოლ საბურთალოში, 22:00-ზე, ცენტრალური ადგილები ბოლო სამი რიგიდან ერთ-ერთში",
       "იყიდე 2 ბილეთი დინამო თბილისის მატჩზე ამ კვირას, აღმოსავლეთ ტრიბუნა", "იყიდე 2 ბილეთი ტრავიატაზე ამ შაბათს, პარტერი, ბილეთის დაზღვევით"],
-    ph: "მისწერეთ tkt.ge AI-ს…", tickets: "ბილეთები", service: "მომსახურების საფასური", total: "სულ", pay: "გადახდა", review: "შეკვეთის გადახედვა", change: "შეცვლა",
+    ph: "მისწერეთ Alde-ს…", tickets: "ბილეთები", service: "მომსახურების საფასური", total: "სულ", pay: "გადახდა", review: "შეკვეთის გადახედვა", change: "შეცვლა",
     safe: "🔒 თანხა არ ჩამოიჭრება, სანამ არ დაადასტურებთ.", replaced: "ჩანაცვლდა ქვემოთ განახლებული შეკვეთით", away: (d) => `${d} თქვენგან`,
     paidRow: (a) => `✓ გადახდილია ${a} · ელ. ბილეთები გაიცა`, conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
     done: (n, t, st) => `მზადაა! „${t}“ — ${n} ელ. ბილეთი უკვე „ჩემს ბილეთებშია“${st ? ` (${st})` : ""}. კარგ დროს გისურვებთ!`,
@@ -428,7 +428,7 @@ const L = {
     confirming: "ვადასტურებთ სალაროსთან…", soldTo: (what) => `${what} — გაყიდულია თქვენზე`, soldShort: "გაყიდულია თქვენზე",
     mailSent: "✉ ელ. ფოსტა გაიგზავნა", smsSent: "💬 SMS გაიგზავნა",
     going: "ბილეთები მზადაა!", etCount: (n, a, card) => `${n} ელ. ბილეთი · გადახდილია ${a} · ${card}`, of: (a, b) => `${a} / ${b}`,
-    viewSeats: "🪑 თქვენი ადგილები დარბაზის სქემაზე", wallet: "Apple Wallet-ში დამატება", byAI: "✦ tkt.ge AI-მ იპოვა და დაჯავშნა ერთი შეტყობინებით · გადახდა თქვენ დაადასტურეთ Face ID-ით",
+    viewSeats: "🪑 თქვენი ადგილები დარბაზის სქემაზე", wallet: "Apple Wallet-ში დამატება", byAI: "✦ Alde-მ იპოვა და დაჯავშნა ერთი შეტყობინებით · გადახდა თქვენ დაადასტურეთ Face ID-ით",
     order: "შეკვეთა", paid: "გადახდილია", zone: "ზონა",
   },
 };
@@ -630,7 +630,7 @@ function homeView() {
   return `
   <div class="card">
     <div class="topbar"><span class="logo">${LOGO}</span><span class="loc">${I.pin}<span>${esc(S.data.location.label)}</span></span><span class="lang">ENG</span></div>
-    <button class="search" onclick="openChat()">${I.search} Search events, venues…<span class="ai">✦ AI</span></button>
+    <button class="search" onclick="openChat()">${I.search} Search events, venues…<span class="ai">Alde</span></button>
     <div class="catrows"><div class="catrow">${cats.slice(0, half).map(chip).join("")}</div><div class="catrow">${cats.slice(half).map(chip).join("")}</div></div>
   </div>
   <div class="panel" style="padding-top:2px">
@@ -938,11 +938,11 @@ function openChat(prefill) {
   c.className = "chat";
   c.id = "chat";
   c.innerHTML = `
-    <div class="chathead"><button onclick="closeChat()">${I.back}</button><div class="ailogo">✦</div>
-      <div style="min-width:0;flex:1"><b>tkt.ge AI</b><small><i></i>${t().sub(esc(locShort()))}</small></div>
+    <div class="chathead"><button onclick="closeChat()">${I.back}</button><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg>
+      <div style="min-width:0;flex:1"><b>Alde</b><small><i></i>${t().sub(esc(locShort()))}</small></div>
       <div class="langsw"><button class="${LANG === "en" ? "on" : ""}" onclick="setLang('en')">EN</button><button class="${LANG === "ka" ? "on" : ""}" onclick="setLang('ka')">ქარ</button></div></div>
     <div class="msgs" id="msgs">
-      <div class="welcome"><div class="ailogo">✦</div><h2>${t().title}</h2><p>${t().intro}</p>
+      <div class="welcome"><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg><h2>${t().title}</h2><p>${t().intro}</p>
         <div class="sugg">${t().chips.map((c) => `<button>${esc(c)}</button>`).join("")}</div></div>
     </div>
     <form class="composer" id="composer"><button type="button" class="mic" id="mic">${I.mic}</button><input id="q" placeholder="${esc(t().ph)}" autocomplete="off" /><button class="send">${I.send}</button></form>`;

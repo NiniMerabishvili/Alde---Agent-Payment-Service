@@ -345,7 +345,7 @@
         <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#000" opacity=".4" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#000"/><rect x="25" y="4.5" width="1.5" height="4" rx=".75" fill="#000" opacity=".4"/></svg>
       </span></div>
       <div class="view" id="view"></div>
-      <button class="fab" id="fab">✦ Book with AI</button>
+      <button class="fab" id="fab">Ask Alde</button>
       <nav class="nav" id="nav"></nav>
     </div>
   </div>
@@ -370,7 +370,7 @@ const L = {
     sub: (a) => `Finds & books stays for you · near ${a}`, title: "Where would you like to stay?",
     intro: "Tell me the place, dates and extras — I'll find the room, build the booking and get it ready to pay.",
     chips: ["Book a Deluxe King room at the Biltmore this weekend with breakfast", "Book a sea view apartment in Batumi this weekend with airport transfer", "Book an apartment in Vake this weekend with late checkout"],
-    ph: "Message myhome AI…", conn: "⚠ Connection problem. Please try again.",
+    ph: "Message Alde…", conn: "⚠ Connection problem. Please try again.",
     hotel: "Hotel", daily: "Daily rent", fromYou: "from you", dates: "Dates", stay: "Stay", nightsGuests: (n, g) => `${n} nights · ${g} guests`,
     room: "Room", extras: "Extras", fee: "Booking fee", total: "Total", change: "Change", pay: "Pay", review: "Review booking",
     safe: "🔒 Nothing is charged until you confirm.", replaced: "Replaced by the updated booking below",
@@ -379,7 +379,7 @@ const L = {
     // fulfilment
     liveLink: "Live link", ownerCal: "owner calendar (myhome Daily)", checking: "CHECKING…", hold: "ON HOLD", confirmed: "CONFIRMED",
     confNo: "Confirmation no.", payment: "Payment", pending: "Pending", paidK: (a) => `✓ Paid ${a}`, happening: "What's happening",
-    bookedBy: "✦ Booked by myhome AI · you confirmed with Face ID", folio: "Guest folio", feeLong: "myhome.ge booking fee", prepaid: "Prepaid",
+    bookedBy: "✦ Booked by Alde · you confirmed with Face ID", folio: "Guest folio", feeLong: "myhome.ge booking fee", prepaid: "Prepaid",
     mail: (e, v) => `✉️ Voucher sent to ${e} · 🛎 ${v} reservations notified`, cin: "in", cout: "out", night: "night",
     days: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], bookedBig: "You're booked!",
     st: (x) => [
@@ -400,7 +400,7 @@ const L = {
     ],
     // confirmation
     cTitle: "Booking confirmed", cBig: "You're booked!", cSub: (v, ci, ct, e) => `${v} is expecting you on ${ci} from ${ct}.<br>Confirmation sent to ${e}`,
-    cNo: (v, hotel) => hotel ? `${v} confirmation no.` : "Reservation number", cAgent: "✦ Found, booked &amp; paid by myhome AI in one message · you confirmed with Face ID",
+    cNo: (v, hotel) => hotel ? `${v} confirmation no.` : "Reservation number", cAgent: "✦ Found, booked &amp; paid by Alde in one message · you confirmed with Face ID",
     cIn: "Check-in", cOut: "Check-out", cFrom: (t) => `from ${t}`, cUntil: (t) => `until ${t}`, cGuest: "Guest", cStatus: "Status", cOk: "Confirmed · paid",
     cPaid: (pm) => `Paid with ${pm}`, dir: "🧭 Directions", home: "Back to home",
   },
@@ -408,7 +408,7 @@ const L = {
     sub: (a) => `პოულობს და ჯავშნის თქვენთვის · ${a}`, title: "სად გსურთ დარჩენა?",
     intro: "მითხარით ადგილი, თარიღები და დამატებები — ვიპოვი ოთახს, შევადგენ ჯავშანს და მოვამზადებ გადასახდელად.",
     chips: ["დამიჯავშნე Deluxe King ოთახი ბილტმორში ამ შაბათ-კვირას, საუზმით", "დამიჯავშნე ზღვის ხედიანი ბინა ბათუმში ამ შაბათ-კვირას, აეროპორტის ტრანსფერით", "მინდა ბინა ვაკეში ამ შაბათ-კვირას, გვიანი გასვლით"],
-    ph: "მისწერეთ myhome AI-ს…", conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
+    ph: "მისწერეთ Alde-ს…", conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
     hotel: "სასტუმრო", daily: "დღიური ქირა", fromYou: "თქვენგან", dates: "თარიღები", stay: "დარჩენა", nightsGuests: (n, g) => `${n} ღამე · ${g} სტუმარი`,
     room: "ოთახი", extras: "დამატებები", fee: "დაჯავშნის საკომისიო", total: "სულ", change: "შეცვლა", pay: "გადახდა", review: "ჯავშნის გადახედვა",
     safe: "🔒 თანხა არ ჩამოიჭრება, სანამ არ დაადასტურებთ.", replaced: "ჩანაცვლდა ქვემოთ განახლებული ჯავშნით",
@@ -416,7 +416,7 @@ const L = {
     m2: "მ²", m: "მ", km: "კმ",
     liveLink: "პირდაპირი კავშირი", ownerCal: "მესაკუთრის კალენდარი (myhome Daily)", checking: "მოწმდება…", hold: "დაბლოკილია", confirmed: "დადასტურებულია",
     confNo: "დადასტურების №", payment: "გადახდა", pending: "მოლოდინში", paidK: (a) => `✓ ${a}`, happening: "რა ხდება ახლა",
-    bookedBy: "✦ დაჯავშნა myhome AI-მ · თქვენ დაადასტურეთ Face ID-ით", folio: "სტუმრის ანგარიში (ფოლიო)", feeLong: "myhome.ge-ს დაჯავშნის საკომისიო", prepaid: "წინასწარ გადახდილი",
+    bookedBy: "✦ დაჯავშნა Alde-მ · თქვენ დაადასტურეთ Face ID-ით", folio: "სტუმრის ანგარიში (ფოლიო)", feeLong: "myhome.ge-ს დაჯავშნის საკომისიო", prepaid: "წინასწარ გადახდილი",
     mail: (e, v) => `✉️ ვაუჩერი გაიგზავნა: ${e} · 🛎 ${v} — დაჯავშნის განყოფილება ინფორმირებულია`, cin: "შესვლა", cout: "გასვლა", night: "ღამე",
     days: ["კვი", "ორშ", "სამ", "ოთხ", "ხუთ", "პარ", "შაბ"], bookedBig: "დაჯავშნილია!",
     st: (x) => [
@@ -436,7 +436,7 @@ const L = {
       ["დადასტურებას ვაგზავნით…", `ელფოსტა: ${x.email}`],
     ],
     cTitle: "ჯავშანი დადასტურებულია", cBig: "დაჯავშნილია!", cSub: (v, ci, ct, e) => `${v} გელოდებათ: ${ci}, ${ct}-დან.<br>დადასტურება გაიგზავნა: ${e}`,
-    cNo: (v, hotel) => hotel ? `${v} — დადასტურების ნომერი` : "ჯავშნის ნომერი", cAgent: "✦ იპოვა, დაჯავშნა და გადაიხადა myhome AI-მ ერთ შეტყობინებაში · თქვენ დაადასტურეთ Face ID-ით",
+    cNo: (v, hotel) => hotel ? `${v} — დადასტურების ნომერი` : "ჯავშნის ნომერი", cAgent: "✦ იპოვა, დაჯავშნა და გადაიხადა Alde-მ ერთ შეტყობინებაში · თქვენ დაადასტურეთ Face ID-ით",
     cIn: "შესვლა", cOut: "გასვლა", cFrom: (t) => `${t}-დან`, cUntil: (t) => `${t}-მდე`, cGuest: "სტუმარი", cStatus: "სტატუსი", cOk: "დადასტურებული · გადახდილი",
     cPaid: (pm) => `გადახდილია: ${pm}`, dir: "🧭 მარშრუტი", home: "მთავარზე დაბრუნება",
   },
@@ -591,7 +591,7 @@ function homeView() {
   <div class="row2"><button class="outline">${I.filter} Detailed filter <span class="n">1</span></button><button class="sq">${I.trash}</button></div>
   <div class="aiwrap">
     <button class="gbtn" onclick="go('home')">${I.search} Search</button>
-    <button class="aibanner" onclick="openChat()"><span class="sp">✦</span><div><b>Book with myhome AI</b><span>Say where and when — AI finds the room, adds extras and books it. You confirm with Face ID.</span></div><span class="go">›</span></button>
+    <button class="aibanner" onclick="openChat()"><span class="sp">✦</span><div><b>Book with Alde</b><span>Say where and when — AI finds the room, adds extras and books it. You confirm with Face ID.</span></div><span class="go">›</span></button>
   </div>
   <div class="tiles">${tiles.map(([k, n]) => `<div class="tile"><div class="ic">${I.tiles[k]}</div>${n}</div>`).join("")}</div>
   <div class="sec"><h2>🚀 SUPER VIP</h2><span class="arrows"><span>‹</span><span style="color:#222">›</span></span></div>
@@ -860,11 +860,11 @@ function openChat(prefill) {
   c.className = "chat";
   c.id = "chat";
   c.innerHTML = `
-    <div class="chathead"><button onclick="closeChat()">${I.back}</button><div class="logo">✦</div>
-      <div style="flex:1;min-width:0"><b>myhome AI</b><small><i></i>${esc(t().sub(locShort()))}</small></div>
+    <div class="chathead"><button onclick="closeChat()">${I.back}</button><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg>
+      <div style="flex:1;min-width:0"><b>Alde</b><small><i></i>${esc(t().sub(locShort()))}</small></div>
       <div class="langsw"><button class="${LANG === "en" ? "on" : ""}" onclick="setLang('en')">EN</button><button class="${LANG === "ka" ? "on" : ""}" onclick="setLang('ka')">ქარ</button></div></div>
     <div class="msgs" id="msgs">
-      <div class="welcome"><div class="logo">✦</div><h2>${esc(t().title)}</h2><p>${esc(t().intro)}</p>
+      <div class="welcome"><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg><h2>${esc(t().title)}</h2><p>${esc(t().intro)}</p>
         <div class="sugg">${t().chips.map((c) => `<button>${esc(c)}</button>`).join("")}</div></div>
     </div>
     <form class="composer" id="composer"><button type="button" class="mic" id="mic">${I.mic}</button><input id="q" placeholder="${esc(t().ph)}" autocomplete="off" /><button class="send">${I.send}</button></form>`;

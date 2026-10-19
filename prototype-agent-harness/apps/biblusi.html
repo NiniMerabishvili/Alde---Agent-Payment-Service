@@ -373,7 +373,7 @@
         <svg width="27" height="13" viewBox="0 0 27 13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" stroke="#000" opacity=".4" fill="none"/><rect x="2" y="2" width="18" height="9" rx="2" fill="#000"/><rect x="25" y="4.5" width="1.5" height="4" rx=".75" fill="#000" opacity=".4"/></svg>
       </span></div>
       <div class="view" id="view"></div>
-      <button class="fab" id="fab">✦ Ask Biblusi AI</button>
+      <button class="fab" id="fab">✦ Ask Alde</button>
       <nav class="nav" id="nav"></nav>
     </div>
   </div>
@@ -394,16 +394,16 @@
 let LANG = localStorage.getItem("agentpay_lang") || "en";
 const L = {
   en: {
-    name: "Biblusi AI", sub: (a) => `Finds & buys books for you · to ${a}`, title: "Which book are you looking for?",
+    name: "Alde", sub: (a) => `Finds & buys books for you · to ${a}`, title: "Which book are you looking for?",
     intro: "Name a title, author or gift idea — I'll find it at the nearest Biblusi, build the order and get it ready to pay.",
     chips: ["Buy Harry Potter and the Philosopher's Stone in Georgian with gift wrapping", "I want Data Tutashkhia and Atomic Habits in Georgian", "Get The Little Prince in English with hardcover"],
-    ph: "Message Biblusi AI…", books: "Books", delivery: "Delivery", deliveryTo: (a) => `Delivery to ${a}`, service: "Service fee", total: "Total", pay: "Pay", review: "Review in cart",
+    ph: "Message Alde…", books: "Books", delivery: "Delivery", deliveryTo: (a) => `Delivery to ${a}`, service: "Service fee", total: "Total", pay: "Pay", review: "Review in cart",
     safe: "🔒 Nothing is charged until you confirm.", change: "Change", replaced: "Replaced by the updated order below", paidRow: (a) => `✓ Paid ${a} · order placed`,
     storeSub: (d, e) => `Nearest store · ${d} km · delivery in ${e}`, km: "km",
     done: (v, e) => `Done! ${v} is packing your order — it'll be at your door in about ${e}.`, conn: "⚠ Connection problem. Please try again.",
     order: "Order", paidWith: "Paid with", yourOrder: "Your order", cont: "Continue shopping",
-    agentPaidShort: "✦ Found, ordered &amp; paid by Biblusi AI — you confirmed with Face ID",
-    agentPaid: "✦ Found, ordered &amp; paid by Biblusi AI in one conversation — you confirmed with Face ID",
+    agentPaidShort: "✦ Found, ordered &amp; paid by Alde — you confirmed with Face ID",
+    agentPaid: "✦ Found, ordered &amp; paid by Alde in one conversation — you confirmed with Face ID",
     st: {
       sent: (s) => `Order sent to ${s}`, sentD: (n, m) => `${n} · paid ${m} · on the store tablet`,
       shelf: "Stock confirmed on the shelf", shelfD: (i, s) => `ISBN ${i} · shelf ${s} · in stock`,
@@ -429,16 +429,16 @@ const L = {
     },
   },
   ka: {
-    name: "ბიბლუსი AI", sub: (a) => `იპოვის და გიყიდით წიგნს · მიტანა: ${a}`, title: "რომელ წიგნს ეძებთ?",
+    name: "Alde", sub: (a) => `იპოვის და გიყიდით წიგნს · მიტანა: ${a}`, title: "რომელ წიგნს ეძებთ?",
     intro: "დაასახელეთ წიგნი, ავტორი ან საჩუქრის იდეა — ვიპოვი უახლოეს ბიბლუსში, შევადგენ შეკვეთას და მოვამზადებ გადასახდელად.",
     chips: ["იყიდე „ჰარი პოტერი და ფილოსოფიური ქვა“ ქართულად, სასაჩუქრე შეფუთვით", "მინდა დათა თუთაშხია და ატომური ჩვევები ქართულად", "იყიდე „პატარა უფლისწული“ ინგლისურად, მაგარი ყდით"],
-    ph: "მისწერეთ ბიბლუსი AI-ს…", books: "წიგნები", delivery: "მიტანა", deliveryTo: (a) => `მიტანა: ${a}`, service: "მომსახურების საფასური", total: "სულ", pay: "გადახდა", review: "კალათაში გადახედვა",
+    ph: "მისწერეთ Alde-ს…", books: "წიგნები", delivery: "მიტანა", deliveryTo: (a) => `მიტანა: ${a}`, service: "მომსახურების საფასური", total: "სულ", pay: "გადახდა", review: "კალათაში გადახედვა",
     safe: "🔒 თანხა არ ჩამოიჭრება, სანამ არ დაადასტურებთ.", change: "შეცვლა", replaced: "ჩანაცვლდა ქვემოთ განახლებული შეკვეთით", paidRow: (a) => `✓ გადახდილია ${a} · შეკვეთა გაფორმდა`,
     storeSub: (d, e) => `უახლოესი ფილიალი · ${d} კმ · მიტანა ${e}-ში`, km: "კმ",
     done: (v, e) => `მზადაა! ${v} უკვე ფუთავს თქვენს შეკვეთას — მოგიტანთ დაახლოებით ${e}-ში.`, conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
     order: "შეკვეთა", paidWith: "გადახდილია:", yourOrder: "თქვენი შეკვეთა", cont: "ყიდვის გაგრძელება",
-    agentPaidShort: "✦ იპოვა, შეუკვეთა და გადაიხადა ბიბლუსი AI-მ — თქვენ დაადასტურეთ Face ID-ით",
-    agentPaid: "✦ ბიბლუსი AI-მ ერთ საუბარში იპოვა, შეუკვეთა და გადაიხადა — თქვენ დაადასტურეთ Face ID-ით",
+    agentPaidShort: "✦ იპოვა, შეუკვეთა და გადაიხადა Alde-მ — თქვენ დაადასტურეთ Face ID-ით",
+    agentPaid: "✦ Alde-მ ერთ საუბარში იპოვა, შეუკვეთა და გადაიხადა — თქვენ დაადასტურეთ Face ID-ით",
     st: {
       sent: (s) => `შეკვეთა გაიგზავნა: ${s}`, sentD: (n, m) => `${n} · გადახდილია ${m} · მაღაზიის პლანშეტზე`,
       shelf: "მარაგი დადასტურდა თაროზე", shelfD: (i, s) => `ISBN ${i} · თარო ${s} · მარაგშია`,
@@ -567,7 +567,7 @@ function header() {
   return `<div class="hdr">
     <div class="brands"><span class="logo">ბიბლუსი<i>Books</i></span><span class="sub-brand a">ბუკლა</span><span class="sub-brand b">XS</span></div>
     <div class="hrow">
-      <button class="sbox" onclick="openChat()"><span>რისი მოძებნა გსურს?</span><span class="ai">✦ AI</span>${I.search}</button>
+      <button class="sbox" onclick="openChat()"><span>რისი მოძებნა გსურს?</span><span class="ai">Alde</span>${I.search}</button>
       <button class="sq" onclick="go('cart')">${I.bag}${cartCount() ? `<span class="badge">${cartCount()}</span>` : ""}</button>
       <span class="sq blue">${I.user}</span>
     </div>
@@ -599,8 +599,8 @@ function homeView() {
   return header() + `
   <button class="banner" onclick="openChat()">
     <h3>Just tell us the book. We'll do the rest.</h3>
-    <p>Biblusi AI finds it at the nearest store, adds gift wrapping and checks out — in one message.</p>
-    <span class="cta">✦ ახალი · Try Biblusi AI</span>
+    <p>Alde finds it at the nearest store, adds gift wrapping and checks out — in one message.</p>
+    <span class="cta">✦ ახალი · Try Alde</span>
     <div class="stack">
       <div style="position:absolute;left:0;top:14px;width:62px;transform:rotate(-10deg)">${cover(lp, 5)}</div>
       <div style="position:absolute;left:44px;top:22px;width:62px;transform:rotate(8deg)">${cover(kn, 5)}</div>
@@ -682,7 +682,7 @@ function lineHtml(name, qty, mods, price, it) {
 function cartView() {
   const v = venue(S.cart.venueId);
   const head = `<div class="pagehead"><button onclick="go('home')">${I.back}</button><div><h1 class="ka">კალათა</h1><small>Cart &amp; checkout</small></div></div>`;
-  if (!v || !S.cart.lines.length) return head + `<div class="empty"><div class="em">🛒</div>Your cart is empty.<br>Ask Biblusi AI for a book.</div>`;
+  if (!v || !S.cart.lines.length) return head + `<div class="empty"><div class="em">🛒</div>Your cart is empty.<br>Ask Alde for a book.</div>`;
   const sub = cartSubtotal(), total = sub + v.deliveryFee + S.data.serviceFee;
   return head + `
   <div class="card"><h3>Books (${cartCount()})</h3>
@@ -845,11 +845,11 @@ function openChat(prefill) {
   c.className = "chat";
   c.id = "chat";
   c.innerHTML = `
-    <div class="chathead"><button onclick="closeChat()">${I.back}</button><div class="ailogo">✦</div>
+    <div class="chathead"><button onclick="closeChat()">${I.back}</button><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg>
       <div style="flex:1;min-width:0"><b>${t().name}</b><small><i></i><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t().sub(locShort()))}</span></small></div>
       <div class="langsw"><button class="${LANG === "en" ? "on" : ""}" onclick="setLang('en')">EN</button><button class="${LANG === "ka" ? "on" : ""}" onclick="setLang('ka')">ქარ</button></div></div>
     <div class="msgs" id="msgs">
-      <div class="welcome"><div class="ailogo">✦</div><h2>${esc(t().title)}</h2><p>${esc(t().intro)}</p>
+      <div class="welcome"><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg><h2>${esc(t().title)}</h2><p>${esc(t().intro)}</p>
         <div class="sugg">${t().chips.map((x) => `<button>${esc(x)}</button>`).join("")}</div></div>
     </div>
     <form class="composer" id="composer"><button type="button" class="mic" id="mic">${I.mic}</button><input id="q" placeholder="${esc(t().ph)}" autocomplete="off" /><button class="send">${I.send}</button></form>`;

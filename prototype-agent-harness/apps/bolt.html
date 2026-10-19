@@ -235,14 +235,14 @@ const L = {
     sub: (a) => `Books & pays rides for you · pickup ${a}`, title: "Where are you going?",
     intro: "Tell me the destination and the ride you want — I'll price it, book it and get it ready to pay.",
     chips: ["Order a taxi from current location (freeuni) to didube metro station", "Take me to Tbilisi airport with Bolt Comfort", "Book a Bolt XL to Tbilisi Mall with a child seat"],
-    ph: "Message Bolt AI…", pickup: "Pickup:", dropoff: "Drop-off:", km: "km", min: "min", away: (n) => `Driver ${n} min away`,
+    ph: "Message Alde…", pickup: "Pickup:", dropoff: "Drop-off:", km: "km", min: "min", away: (n) => `Driver ${n} min away`,
     fare: "Ride fare", fee: "Ride fee", booking: "Booking fee", total: "Total", change: "Change", confirm: (c, a) => `Confirm ${c} · ${a}`,
     review: "Review ride", safe: "🔒 Nothing is charged until you confirm.", replaced: "Replaced by the updated ride below", paidRow: (a) => `✓ Paid ${a} · ride booked`,
     done: (c, n, loc) => `Done! Finding your ${c} driver now — pickup in about ${n} min at ${loc}.`, conn: "⚠ Connection problem. Please try again.",
     s0: ["Looking for a driver…", (c) => `Matching you with the nearest ${c} car`],
     s2: [(n) => `Driver arrives in ${n} min`, (d, loc) => `${d} is on the way · meet at ${loc}, main entrance`],
     s3: ["Driver has arrived", (car, plate) => `${car} · ${plate} is waiting for you`],
-    acts: ["Contact", "Safety", "Share trip"], agentpaid: "✦ Booked &amp; paid by Bolt AI in one message · you confirmed with Face ID",
+    acts: ["Contact", "Safety", "Share trip"], agentpaid: "✦ Booked &amp; paid by Alde in one message · you confirmed with Face ID",
     trip: (k, m) => `${k} km · ~${m} min trip`, paid: (pm) => `Paid · ${pm}`,
     drivers: { economy: ["Levan M.", "White"], comfort: ["Giorgi K.", "Silver"], xl: ["Nika B.", "Grey"], premium: ["Davit T.", "Black"] },
   },
@@ -250,14 +250,14 @@ const L = {
     sub: (a) => `ჯავშნის და იხდის თქვენთვის · აყვანა: ${a}`, title: "სად მიდიხართ?",
     intro: "მითხარით, სად მიდიხართ და რომელი კლასი გსურთ — დავთვლი ფასს, დავჯავშნი და მოვამზადებ გადასახდელად.",
     chips: ["გამომიძახე ტაქსი ჩემი ლოკაციიდან (თავისუფალი უნივერსიტეტი) დიდუბის მეტრომდე", "წამიყვანე თბილისის აეროპორტში Bolt Comfort-ით", "დამიჯავშნე Bolt XL თბილისი მოლამდე ბავშვის სავარძლით"],
-    ph: "მისწერეთ Bolt AI-ს…", pickup: "აყვანა:", dropoff: "დანიშნულება:", km: "კმ", min: "წთ", away: (n) => `მძღოლი ${n} წუთის სავალზეა`,
+    ph: "მისწერეთ Alde-ს…", pickup: "აყვანა:", dropoff: "დანიშნულება:", km: "კმ", min: "წთ", away: (n) => `მძღოლი ${n} წუთის სავალზეა`,
     fare: "მგზავრობის ღირებულება", fee: "მგზავრობის საკომისიო", booking: "ჯავშნის საფასური", total: "სულ", change: "შეცვლა", confirm: (c, a) => `დაადასტურეთ ${c} · ${a}`,
     review: "მგზავრობის გადახედვა", safe: "🔒 თანხა არ ჩამოიჭრება, სანამ არ დაადასტურებთ.", replaced: "ჩანაცვლდა ქვემოთ განახლებული მგზავრობით", paidRow: (a) => `✓ გადახდილია ${a} · მგზავრობა დაჯავშნილია`,
     done: (c, n, loc) => `მზადაა! ვეძებ ${c} მძღოლს — მოვა დაახლოებით ${n} წუთში (${loc}).`, conn: "⚠ კავშირის პრობლემა. სცადეთ თავიდან.",
     s0: ["ვეძებთ მძღოლს…", (c) => `ვარჩევთ უახლოეს ${c} მანქანას`],
     s2: [(n) => `მძღოლი მოვა ${n} წუთში`, (d, loc) => `${d} გზაშია · შეხვედრის ადგილი: ${loc}, მთავარი შესასვლელი`],
     s3: ["მძღოლი მოვიდა", (car, plate) => `${car} · ${plate} გელოდებათ`],
-    acts: ["დაკავშირება", "უსაფრთხოება", "გაზიარება"], agentpaid: "✦ დაჯავშნა და გადაიხადა Bolt AI-მ ერთი შეტყობინებით · თქვენ დაადასტურეთ Face ID-ით",
+    acts: ["დაკავშირება", "უსაფრთხოება", "გაზიარება"], agentpaid: "✦ დაჯავშნა და გადაიხადა Alde-მ ერთი შეტყობინებით · თქვენ დაადასტურეთ Face ID-ით",
     trip: (k, m) => `${k} კმ · ~${m} წთ მგზავრობა`, paid: (pm) => `გადახდილია · ${pm}`,
     drivers: { economy: ["ლევან მ.", "თეთრი"], comfort: ["გიორგი კ.", "ვერცხლისფერი"], xl: ["ნიკა ბ.", "ნაცრისფერი"], premium: ["დავით თ.", "შავი"] },
   },
@@ -430,13 +430,13 @@ function homeView() {
   const recent = ["didube_metro", "tbs_airport", "freedom_sq", "tbilisi_mall", "central_station", "east_point", "abanotubani", "biltmore"].map(dest);
   return `
   <button class="mapbtn" style="left:16px;top:58px">${I.menu}</button>
-  <button class="aipill" onclick="openChat()"><span class="sp">✦</span>Ask Bolt AI</button>
+  <button class="aipill" onclick="openChat()"><span class="sp">✦</span>Ask Alde</button>
   <button class="mapbtn" style="right:16px;bottom:476px">${I.locate}</button>
   <div class="sheet" style="height:460px"><div class="grab"></div>
-    <button class="where" onclick="openChat()">${I.search} Where to?<span class="ai">✦ AI</span></button>
+    <button class="where" onclick="openChat()">${I.search} Where to?<span class="ai">Alde</span></button>
     <div class="sc">
       ${recent.map((d) => `<button class="place" onclick="pickDest('${d.id}')"><span class="ic">${I.clock}</span><span class="t"><b>${esc(d.name)}</b><small>${esc(d.meta.address)}, Tbilisi</small></span><span class="km">${d.meta.roadKm} km</span></button>`).join("")}
-      <button class="promo" onclick="openChat()"><span class="sp">✦</span><span><b>Just say where you're going</b><span>Bolt AI picks the ride, prices it and books it — you confirm with Face ID.</span></span></button>
+      <button class="promo" onclick="openChat()"><span class="sp">✦</span><span><b>Just say where you're going</b><span>Alde picks the ride, prices it and books it — you confirm with Face ID.</span></span></button>
       <div class="tiles"><div class="tile on"><span class="e">🚗</span>Ride</div><div class="tile"><span class="e">🛴</span>Scooters</div><div class="tile"><span class="e">🚙</span>Drive</div><div class="tile"><span class="e">🍔</span>Food</div></div>
     </div>
   </div>`;
@@ -558,11 +558,11 @@ function openChat(prefill) {
   const c = document.createElement("div");
   c.className = "chat"; c.id = "chat";
   c.innerHTML = `
-    <div class="chathead"><button onclick="closeChat()">${I.back}</button><div class="logo">✦</div>
-      <div style="flex:1;min-width:0"><b>Bolt AI</b><small><i></i>${esc(t().sub(locLabel()))}</small></div>
+    <div class="chathead"><button onclick="closeChat()">${I.back}</button><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg>
+      <div style="flex:1;min-width:0"><b>Alde</b><small><i></i>${esc(t().sub(locLabel()))}</small></div>
       <div class="langsw"><button class="${LANG === "en" ? "on" : ""}" onclick="setLang('en')">EN</button><button class="${LANG === "ka" ? "on" : ""}" onclick="setLang('ka')">ქარ</button></div></div>
     <div class="msgs" id="msgs">
-      <div class="welcome"><div class="logo">✦</div><h2>${esc(t().title)}</h2><p>${esc(t().intro)}</p>
+      <div class="welcome"><svg class="alde-mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/><rect x="8" y="0" width="4" height="4" opacity=".4"/><rect x="0" y="8" width="4" height="4" opacity=".4"/></svg><h2>${esc(t().title)}</h2><p>${esc(t().intro)}</p>
         <div class="sugg">${t().chips.map((c) => `<button>${esc(c)}</button>`).join("")}</div></div>
     </div>
     <form class="composer" id="composer"><button type="button" class="mic" id="mic">${I.mic}</button><input id="q" placeholder="${esc(t().ph)}" autocomplete="off" /><button class="send">${I.send}</button></form>`;

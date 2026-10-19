@@ -76,7 +76,65 @@
   .apui-st b { display: block; font-weight: 800; font-size: 14.5px; }
   .apui-st small { display: block; color: rgba(0,0,0,.55); font-weight: 600; font-size: 12.5px; line-height: 1.35; }
   .apui-st .t { margin-left: auto; font-size: 11.5px; font-weight: 700; color: rgba(0,0,0,.4); white-space: nowrap; }
+
+  /* The chat is Alde, on top of the client's app. The store keeps its own screens. */
+  .chat {
+    background: #08090b !important; color: #eceef2 !important;
+    font-family: "Space Grotesk", "Noto Sans Georgian", system-ui, sans-serif !important;
+  }
+  .chathead {
+    background: #08090b !important; color: #eceef2 !important;
+    border-bottom: 1px solid rgba(255,255,255,.1) !important;
+    position: sticky; top: 0; z-index: 2;
+  }
+  .chathead b {
+    font-family: Michroma, "Space Grotesk", sans-serif !important;
+    font-weight: 400 !important; letter-spacing: .14em !important; font-size: 13px !important; color: #fff !important;
+    text-transform: uppercase !important;
+  }
+  .chathead small, .chathead small span { color: rgba(236,238,242,.55) !important; font-weight: 500 !important; }
+  .chathead > button { color: #eceef2 !important; }
+  .alde-mark { width: 18px; height: 18px; fill: #eceef2; flex: none; display: block; }
+  .welcome .alde-mark { width: 28px; height: 28px; margin: 0 auto 12px; }
+  .chat .logo, .chat .ailogo, .chat .lg { background: transparent !important; box-shadow: none !important; }
+  .chat .ailogo::after, .chat .lg i, .chathead b .beta { display: none !important; }
+  .chat .msgs, .chat #msgs { background: transparent !important; }
+  .chat .b { font-weight: 500 !important; }
+  .chat .b.me { background: #f2f3f5 !important; color: #111 !important; }
+  .chat .b.ai { background: rgba(255,255,255,.05) !important; color: #eceef2 !important; border: 1px solid rgba(255,255,255,.1); }
+  .chat .welcome h2 { color: #fff !important; font-weight: 500 !important; }
+  .chat .welcome p { color: rgba(236,238,242,.55) !important; }
+  .chat .sugg button, .chat .chips button {
+    background: rgba(8,9,11,.8) !important; color: #eceef2 !important;
+    border: 1px solid rgba(255,255,255,.28) !important; font-weight: 500 !important;
+  }
+  .chat .composer { background: #08090b !important; border-top: 1px solid rgba(255,255,255,.12) !important; }
+  .chat .composer input { background: rgba(255,255,255,.04) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.16) !important; }
+  .chat .composer input::placeholder { color: rgba(255,255,255,.35) !important; }
+  .chat .composer .send { background: #f2f3f5 !important; color: #000 !important; }
+  .chat .composer .mic { background: rgba(255,255,255,.06) !important; color: #eceef2 !important; }
+  .chat .langsw { background: rgba(255,255,255,.06) !important; }
+  .chat .langsw button { color: rgba(236,238,242,.55) !important; }
+  .chat .langsw button.on { background: #f2f3f5 !important; color: #111 !important; }
+  .chat .apui-think-h { color: rgba(236,238,242,.72) !important; }
+  .chat .apui-think.run .apui-think-h .apui-label {
+    background: linear-gradient(90deg, rgba(255,255,255,.35), #fff, rgba(255,255,255,.35)) !important;
+    background-size: 200% 100% !important; -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important;
+  }
+  .chat .apui-thought { color: rgba(236,238,242,.6) !important; }
+  .chat .apui-step { color: rgba(236,238,242,.82) !important; }
+  .chat .apui-think-b { border-left-color: rgba(255,255,255,.16) !important; }
+  .chat .apui-step i { background: #f2f3f5 !important; color: #111 !important; }
+  .fab, .aipill {
+    background: #08090b !important; color: #eceef2 !important;
+    border: 1px solid rgba(255,255,255,.35) !important;
+    font-family: "Space Grotesk", system-ui, sans-serif !important;
+  }
   `;
+  const font = document.createElement("link");
+  font.rel = "stylesheet";
+  font.href = "https://fonts.googleapis.com/css2?family=Michroma&family=Space+Grotesk:wght@400;500&family=Noto+Sans+Georgian:wght@400;500&display=swap";
+  document.head.appendChild(font);
   const style = document.createElement("style");
   style.textContent = css;
   document.head.appendChild(style);
