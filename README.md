@@ -1,6 +1,7 @@
 customers say what they want, your agent finds it in that company’s catalog, shows a real price, and the customer taps to pay.
 
 Prototype video (demo)
+
 https://github.com/user-attachments/assets/ae929a63-9983-4d60-a902-e34fdc17eb6c
 
 What the client is buying
