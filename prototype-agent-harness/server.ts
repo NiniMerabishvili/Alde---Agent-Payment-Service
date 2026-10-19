@@ -49,6 +49,8 @@ Bun.serve({
     const path = url.pathname;
     if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
+    if (path === "/favicon.ico") return file("favicon.ico", "image/x-icon");
+    if (path === "/favicon.png") return file("favicon.png", "image/png");
     if (path === "/favicon.svg") return file("favicon.svg", "image/svg+xml");
     if (path === "/widget.js") return file("widget.js", "text/javascript");
     if (path === "/sdk.js") return file("sdk.js", "text/javascript");

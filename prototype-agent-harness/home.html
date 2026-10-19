@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#08090b" />
   <title>Alde — for your app</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" href="/favicon.ico?v=2" sizes="32x32" />
+<link rel="icon" type="image/png" href="/favicon.png?v=2" sizes="64x64" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Michroma&family=Noto+Sans+Georgian:wght@400;500&display=swap" rel="stylesheet" />
@@ -128,7 +129,7 @@
     .send:hover:not(:disabled) { transform: scale(1.06); box-shadow: 0 0 40px rgba(255,255,255,0.35); }
     .send:disabled { opacity: 0.35; cursor: default; }
 
-    .sheet { position: relative; z-index: 1; padding: 28px 32px 80px; display: flex; flex-direction: column; gap: 22px; max-width: 1080px; margin: 0 auto; }
+    .sheet { position: relative; z-index: 1; padding: 48px 32px 96px; display: flex; flex-direction: column; gap: 56px; max-width: 1080px; margin: 0 auto; }
     .kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; color: var(--muted); }
     .sheet h2 { font-family: var(--display); font-weight: 400; font-size: clamp(20px, 2.4vw, 28px); letter-spacing: 0.03em; line-height: 1.25; margin-top: 8px; }
     .lead { margin-top: 10px; max-width: 62ch; color: rgba(255,255,255,0.72); font-size: 15px; line-height: 1.55; }
@@ -231,7 +232,7 @@
       .composer { bottom: 16px; }
       .field, .send { height: 52px; }
       .send { width: 52px; }
-      .sheet { padding: 18px 16px 64px; }
+      .sheet { padding: 28px 16px 72px; gap: 40px; }
       .ev { grid-template-columns: 1fr; gap: 2px; }
     }
     @media (prefers-reduced-motion: reduce) {
