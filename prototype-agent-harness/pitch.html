@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#08090b" />
+  <title>Alde — FinEdu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Michroma&family=Noto+Sans+Georgian:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #08090b;
+      --fg: #eceef2;
+      --muted: rgba(236, 238, 242, 0.52);
+      --line: rgba(255, 255, 255, 0.1);
+      --green: #3ce6a0;
+      --red: #ff2d2d;
+      --mono: "JetBrains Mono", "Noto Sans Georgian", ui-monospace, monospace;
+      --display: "Michroma", "Space Grotesk", sans-serif;
+      --sans: "Space Grotesk", "Noto Sans Georgian", system-ui, sans-serif;
+      --chrome: 78px;
+      --foot: 36px;
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--fg); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+    @media (hover: hover) and (pointer: fine) {
+      html, html * { cursor: none; }
+    }
+    .cur { display: none; }
+    @media (hover: hover) and (pointer: fine) {
+      .cur {
+        display: block; position: fixed; z-index: 40; top: 0; left: 0; width: 22px; height: 22px;
+        margin: -11px 0 0 -11px; border-radius: 50%; background: #fff; mix-blend-mode: difference;
+        filter: blur(1.5px); pointer-events: none; will-change: transform;
+        transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1), height 0.35s cubic-bezier(0.22, 1, 0.36, 1), margin 0.35s cubic-bezier(0.22, 1, 0.36, 1), transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .cur.hot { width: 72px; height: 72px; margin: -36px 0 0 -36px; filter: blur(4px); }
+    }
+    .haze { position: fixed; inset: -20%; filter: blur(70px); opacity: 0.75; pointer-events: none; z-index: 0; }
+    .haze i { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(160, 170, 190, 0.45), transparent 65%); animation: drift 28s ease-in-out infinite alternate; }
+    .haze i:nth-child(1) { width: 55vmax; height: 55vmax; left: -5%; top: 0; }
+    .haze i:nth-child(2) { width: 40vmax; height: 40vmax; right: 0; top: 10%; animation-duration: 34s; opacity: 0.6; }
+    .haze i:nth-child(3) { width: 28vmax; height: 28vmax; left: 40%; bottom: 0; background: radial-gradient(circle, rgba(255, 45, 45, 0.18), transparent 68%); animation-duration: 22s; }
+    @keyframes drift { 50% { transform: translate(4vw, -3vh) scale(1.08); } 100% { transform: translate(-4vw, 3vh) scale(0.96); } }
+    #stars { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+    .grain { position: fixed; inset: 0; pointer-events: none; opacity: 0.07; mix-blend-mode: overlay; z-index: 8;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+    .progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 9; background: rgba(255,255,255,0.08); }
+    .progress i { display: block; height: 100%; width: 0; background: #fff; box-shadow: 0 0 12px #fff; transition: width 0.7s cubic-bezier(0.77, 0, 0.18, 1); }
+
+    .top { position: fixed; top: 2px; left: 0; right: 0; height: 48px; z-index: 6; display: flex; align-items: center; justify-content: space-between; padding: 0 64px 0 22px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-size: 13px; letter-spacing: 0.08em; }
+    .mark { width: 16px; height: 16px; fill: var(--fg); }
+    .context { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; color: var(--muted); }
+    .count { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; }
+
+    .ticker { position: fixed; top: 50px; left: 0; right: 0; height: 28px; z-index: 6; overflow: hidden; display: flex; align-items: center; border-top: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(8,9,11,0.45); backdrop-filter: blur(8px); }
+    .foot { position: fixed; bottom: 0; left: 0; right: 0; height: var(--foot); z-index: 6; overflow: hidden; display: flex; align-items: center; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(8,9,11,0.72); }
+    .track { display: flex; width: max-content; animation: ticker 46s linear infinite; }
+    .foot .track { animation-duration: 38s; animation-direction: reverse; }
+    .track p { display: flex; gap: 22px; margin: 0; padding-right: 22px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; color: rgba(236,238,242,0.55); white-space: nowrap; }
+    .track b { font-weight: 500; color: rgba(236,238,242,0.85); }
+    @keyframes ticker { to { transform: translateX(-50%); } }
+
+    .deck { position: fixed; top: var(--chrome); bottom: var(--foot); left: 0; right: 0; z-index: 1; }
+    .slide { position: absolute; inset: 0; opacity: 0; transform: translateY(7vh); pointer-events: none; transition: transform 0.85s cubic-bezier(0.77, 0, 0.18, 1), opacity 0.55s ease; }
+    .slide.on { opacity: 1; transform: none; pointer-events: auto; z-index: 2; }
+    .slide.leave { opacity: 0; transform: translateY(-7vh); z-index: 1; }
+    .pad { height: 100%; overflow: auto; display: grid; grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr); gap: 28px; align-items: center; padding: 18px 64px 18px 28px; }
+    .pad.hero { grid-template-columns: minmax(0, 1fr); }
+    .copy, .rise { min-width: 0; }
+    .hero .rise { width: min(860px, 100%); margin-inline: auto; text-align: center; }
+
+    .ghost { overflow: hidden; }
+    .ghost b { display: block; font-family: var(--display); font-weight: 400; font-size: clamp(20px, 2.6vw, 36px); line-height: 0.92; letter-spacing: 0.02em; white-space: nowrap; color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,0.28); opacity: 0; transform: translateY(28%); }
+    .ghost b:last-child { -webkit-text-stroke-color: rgba(255,45,45,0.45); }
+    .slide.on .ghost b { animation: lift 0.95s cubic-bezier(0.77, 0, 0.18, 1) forwards; }
+    .slide.on .ghost b:last-child { animation-delay: 0.08s; }
+    .rise > * { opacity: 0; transform: translateY(18px); }
+    .slide.on .rise > * { animation: lift 0.8s cubic-bezier(0.77, 0, 0.18, 1) forwards; }
+    .slide.on .rise > *:nth-child(1) { animation-delay: 0.08s; }
+    .slide.on .rise > *:nth-child(2) { animation-delay: 0.14s; }
+    .slide.on .rise > *:nth-child(3) { animation-delay: 0.2s; }
+    .slide.on .rise > *:nth-child(4) { animation-delay: 0.26s; }
+    .slide.on .rise > *:nth-child(5) { animation-delay: 0.32s; }
+    .slide.on .rise > *:nth-child(6) { animation-delay: 0.38s; }
+    .slide.on .rise > *:nth-child(7) { animation-delay: 0.44s; }
+    .slide.on .rise > *:nth-child(8) { animation-delay: 0.5s; }
+    @keyframes lift { to { opacity: 1; transform: none; } }
+
+    .kicker { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; color: var(--muted); }
+    h1 { font-family: var(--display); font-weight: 400; font-size: clamp(22px, 2.5vw, 34px); line-height: 1.2; letter-spacing: 0.03em; margin: 8px 0 10px; }
+    .hero h1 { font-size: clamp(26px, 3vw, 40px); }
+    .lead, .copy p { color: rgba(236,238,242,0.78); font-size: 16px; line-height: 1.5; max-width: 62ch; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chips span, .tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; padding: 5px 9px; border-radius: 999px; border: 1px solid rgba(60,230,160,0.45); color: var(--green); box-shadow: 0 0 12px rgba(60,230,160,0.12); }
+    .tag { color: var(--muted); border-color: var(--line); box-shadow: none; }
+
+    .rows { display: flex; flex-direction: column; margin-top: 8px; }
+    .rows li, .plain { list-style: none; }
+    .rows li { display: grid; grid-template-columns: 36px 1fr; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14.5px; line-height: 1.35; }
+    .rows em { font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--muted); padding-top: 3px; }
+    .rows small, .note { display: block; margin-top: 3px; color: var(--muted); font-size: 13px; line-height: 1.4; }
+
+    .pull { margin-top: 14px; padding: 14px 16px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.14); background: rgba(12,13,16,0.72); font-size: 15px; line-height: 1.45; }
+
+    .who { display: grid; grid-template-columns: 200px 1fr; gap: 14px; margin-top: 8px; }
+    .portrait { border-radius: 18px; padding: 16px; border: 1px solid rgba(255,255,255,0.14); background: rgba(12,13,16,0.72); }
+    .avatar { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-size: 12px; border: 1px solid rgba(255,255,255,0.3); margin-bottom: 12px; }
+    .portrait b { display: block; font-size: 18px; font-weight: 500; }
+    .portrait span { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
+
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+    .step { min-height: 0; padding: 18px 14px; border-radius: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+    .words { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .words span { font-family: var(--display); font-size: 13px; letter-spacing: 0.08em; padding: 10px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); }
+    .step em { font-style: normal; font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--muted); }
+    .step strong { font-size: 16px; font-weight: 500; }
+    .step p { font-size: 13.5px; line-height: 1.4; color: rgba(236,238,242,0.72); }
+
+    .learn { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 14px; align-items: start; }
+    .receipt { border-radius: 18px; padding: 14px; background: rgba(12,13,16,0.82); border: 1px solid rgba(255,255,255,0.14); }
+    .r-head, .r-line { display: flex; justify-content: space-between; gap: 12px; }
+    .r-merchant { font-size: 15px; font-weight: 500; }
+    .r-meta, .r-note { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+    .r-wait { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; border: 1px solid rgba(255,255,255,0.35); padding: 4px 8px; border-radius: 999px; height: fit-content; }
+    .r-lines { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+    .r-line span:last-child { font-family: var(--mono); }
+    .r-total { padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.16); font-weight: 500; }
+    .teach { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.55s cubic-bezier(0.77, 0, 0.18, 1); }
+    .receipt.taught .teach { grid-template-rows: 1fr; }
+    .teach-in { overflow: hidden; }
+    .bar { height: 4px; border-radius: 99px; background: rgba(255,255,255,0.12); margin: 10px 0 8px; }
+    .bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--green); box-shadow: 0 0 10px var(--green); transition: width 0.7s 0.15s; }
+    .receipt.taught .bar i { width: 72%; }
+    .teach p { font-size: 12.5px; line-height: 1.4; color: rgba(236,238,242,0.84); margin-top: 6px; }
+    .btns { display: flex; gap: 8px; margin-top: 12px; }
+    .btns a, .btns span, .textbtn { text-align: center; padding: 10px 8px; border-radius: 12px; font-size: 13px; font-weight: 500; }
+    .solid { background: #f2f3f5; color: #111; }
+    .ghostbtn { background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid var(--line); }
+    .textbtn { display: inline-block; margin-top: 10px; border: 1px solid rgba(255,255,255,0.28); font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; font-weight: 400; }
+    .textbtn:hover, .solid:hover { box-shadow: 0 0 18px rgba(255,255,255,0.25); }
+
+    .cmp { display: flex; flex-direction: column; margin-top: 8px; }
+    .cmp-h, .cmp-r { display: grid; grid-template-columns: 1.3fr 0.8fr 0.9fr 1.1fr; gap: 8px; align-items: center; padding: 9px 10px; }
+    .cmp-h { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--muted); }
+    .cmp-r { border-top: 1px solid var(--line); font-size: 13.5px; }
+    .cmp-r.us { border: 1px solid rgba(255,255,255,0.55); border-radius: 12px; box-shadow: 0 0 18px rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); }
+
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+    .panel { border-radius: 16px; padding: 14px; background: rgba(12,13,16,0.72); border: 1px solid rgba(255,255,255,0.12); }
+    .panel h2 { font-family: var(--display); font-weight: 400; font-size: 16px; letter-spacing: 0.06em; margin: 6px 0 8px; }
+    .panel li { margin: 6px 0 6px 16px; font-size: 14px; line-height: 1.4; color: rgba(236,238,242,0.8); }
+    .names { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .names i { font-style: normal; font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; padding: 6px 8px; border-radius: 999px; border: 1px solid var(--line); }
+
+    .ladder { display: flex; gap: 8px; list-style: none; padding: 0; margin-top: 12px; }
+    .ladder li { flex: 1; min-height: 74px; padding: 10px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); font-size: 13px; line-height: 1.3; color: var(--muted); }
+    .ladder li b { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; font-weight: 500; margin-bottom: 6px; color: inherit; }
+    .ladder li.here { color: #fff; border-color: rgba(255,255,255,0.8); box-shadow: 0 0 16px rgba(255,255,255,0.16); }
+
+    .qs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+    .qs article { padding: 14px; border-radius: 16px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); min-height: 120px; }
+    .qs b { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; font-weight: 500; color: var(--muted); margin-bottom: 8px; }
+    .qs p, .math { font-size: 15px; line-height: 1.4; }
+    .math { margin-top: 12px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em; color: rgba(236,238,242,0.8); }
+
+    .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .role { padding: 14px; border-radius: 16px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); min-height: 112px; }
+    .role.open { border-color: rgba(255,45,45,0.55); box-shadow: 0 0 16px rgba(255,45,45,0.12); }
+    .role em { font-style: normal; font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; color: var(--muted); }
+    .role strong { display: block; margin: 8px 0 6px; font-size: 16px; font-weight: 500; }
+    .role p { font-size: 13.5px; line-height: 1.4; color: rgba(236,238,242,0.75); }
+
+    .scores { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .scores a { display: block; padding: 12px 12px 11px; border-radius: 14px; border: 1px solid var(--line); background: rgba(12,13,16,0.55); transition: border-color 0.2s, transform 0.4s cubic-bezier(0.77, 0, 0.18, 1); }
+    .scores a:hover { border-color: rgba(255,255,255,0.7); transform: translateY(-2px); }
+    .scores em { font-style: normal; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--green); }
+    .scores b { display: block; margin: 4px 0; font-weight: 500; font-size: 14px; }
+    .scores span { display: block; font-size: 12.5px; line-height: 1.35; color: rgba(236,238,242,0.7); }
+
+    .hero-row { margin-top: 22px; display: flex; align-items: center; justify-content: center; gap: 22px; }
+    .seal { position: relative; width: 118px; height: 118px; display: grid; place-items: center; flex: none; }
+    .seal svg { position: absolute; inset: 0; animation: spin 18s linear infinite; }
+    .seal span { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; }
+    .seal:hover svg { filter: drop-shadow(0 0 10px rgba(255,255,255,0.45)); }
+    @keyframes spin { to { transform: rotate(1turn); } }
+    .hero-links { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; }
+    .hero-links a { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; border-bottom: 1px solid rgba(255,255,255,0.35); padding-bottom: 3px; }
+    .hint { margin-top: 16px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; color: var(--muted); }
+
+    .rail { position: fixed; right: 16px; top: 50%; transform: translateY(-50%); z-index: 7; display: flex; flex-direction: column; gap: 7px; }
+    .rail button { width: 7px; height: 7px; border-radius: 99px; background: rgba(255,255,255,0.28); padding: 0; }
+    .rail button.on { height: 22px; background: #fff; box-shadow: 0 0 10px rgba(255,255,255,0.7); }
+    .pager { position: fixed; right: 18px; bottom: 48px; z-index: 7; display: flex; flex-direction: column; gap: 6px; }
+    .pager button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.28); background: rgba(8,9,11,0.7); }
+    .pager button:hover { border-color: #fff; }
+
+    @media (max-width: 980px) {
+      .pad, .who, .learn, .split, .qs, .roles, .scores, .steps { grid-template-columns: 1fr; }
+      .cmp-h { display: none; }
+      .cmp-r { grid-template-columns: 1fr 1fr; }
+      .ladder { flex-wrap: wrap; }
+      .ladder li { flex: 1 1 30%; }
+      .ghost b { font-size: 42px; }
+      h1 { font-size: 28px; }
+    }
+    @media (max-height: 760px) {
+      h1 { font-size: clamp(22px, 3.2vw, 34px); margin: 6px 0 8px; }
+      .lead, .copy p, .rows li { font-size: 14px; }
+      .rows li, .cmp-r { padding-top: 7px; padding-bottom: 7px; }
+      .step { min-height: 0; }
+      .qs article, .role { min-height: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .haze i, .track, .seal svg, .cur { animation: none; transition: none; }
+      .slide, .progress i, .teach, .bar i, .scores a { transition: none; }
+      .ghost b, .rise > * { opacity: 1; transform: none; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="haze" aria-hidden="true"><i></i><i></i><i></i></div>
+  <canvas id="stars" aria-hidden="true"></canvas>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="progress" aria-hidden="true"><i id="bar"></i></div>
+  <div class="cur" id="cur" aria-hidden="true"></div>
+
+  <header class="top">
+    <a class="brand" href="/">
+      <svg viewBox="0 0 12 12" class="mark" aria-hidden="true"><rect x="0" y="0" width="4" height="4" /><rect x="4" y="4" width="4" height="4" /><rect x="8" y="0" width="4" height="4" opacity=".4" /><rect x="0" y="8" width="4" height="4" opacity=".4" /></svg>
+      ALDE
+    </a>
+    <div class="context">UNI4VERSE · FINEDU</div>
+    <div class="count" id="count">01 / 14</div>
+  </header>
+
+  <div class="ticker" aria-hidden="true">
+    <div class="track">
+      <p><span>კ1 <b>PROBLEM</b></span><span>კ2 <b>NEW</b></span><span>კ3 <b>BUILD</b></span><span>კ4 <b>LIVE</b></span><span>კ5 <b>TEAM</b></span><span>კ6 <b>TELL</b></span></p>
+      <p><span>კ1 <b>PROBLEM</b></span><span>კ2 <b>NEW</b></span><span>კ3 <b>BUILD</b></span><span>კ4 <b>LIVE</b></span><span>კ5 <b>TEAM</b></span><span>კ6 <b>TELL</b></span></p>
+    </div>
+  </div>
+
+  <main class="deck" id="deck">
+    <section class="slide" id="open" data-label="Open">
+      <div class="pad hero">
+        <div class="rise">
+          <div class="ghost" aria-hidden="true"><b>ALDE</b><b>ALDE</b></div>
+          <p class="kicker">FINEDU</p>
+          <h1>THE LESSON<br />IS ON THE<br />RECEIPT</h1>
+          <p class="lead" style="margin-inline:auto">They say it. They see the week. They tap.</p>
+          <div class="hero-row">
+            <a class="seal" href="/demo/wolt" aria-label="Open the live Wolt demo">
+              <svg viewBox="0 0 100 100" aria-hidden="true">
+                <defs><path id="ring" d="M50,50 m-37,0 a37,37 0 1,1 74,0 a37,37 0 1,1 -74,0" /></defs>
+                <text fill="rgba(236,238,242,0.8)" font-family="JetBrains Mono, monospace" font-size="8.5" letter-spacing="2.4">
+                  <textPath href="#ring">OPEN THE DEMO · OPEN THE DEMO · OPEN THE DEMO · </textPath>
+                </text>
+              </svg>
+              <span>DEMO</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="problem" data-label="Problem">
+      <div class="pad">
+        <div class="ghost" aria-hidden="true"><b>PROBLEM</b><b>PROBLEM</b></div>
+        <div class="copy rise">
+          <div class="chips"><span title="პრობლემის იდენტიფიცირება და აქტუალობა">კ1 · PROBLEM</span></div>
+          <h1>THE LESSON<br />COMES LATE.</h1>
+          <p>Dinner is a sentence. The class is on Sunday.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="who" data-label="Who">
+      <div class="pad">
+        <div class="ghost" aria-hidden="true"><b>WHO</b><b>WHO</b></div>
+        <div class="copy rise">
+          <div class="chips"><span>კ1 · PROBLEM</span><span>კ4 · BUSINESS</span></div>
+          <h1>ANA, 21. TBILISI.</h1>
+          <p>She already buys in the app. The lesson has to be there.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="solution" data-label="Solution">
+      <div class="pad">
+        <div class="ghost" aria-hidden="true"><b>ORDER</b><b>ORDER</b></div>
+        <div class="copy rise">
+          <div class="chips"><span>კ2 · INNOVATION</span></div>
+          <h1>SAY IT. FIND IT. TAP.</h1>
+          <div class="steps">
+            <article class="step"><em>01</em><strong>They say it</strong></article>
+            <article class="step"><em>02</em><strong>We find it</strong></article>
+            <article class="step"><em>03</em><strong>They tap</strong></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="learn" data-label="Learn">
+      <div class="pad">
+        <div class="ghost" aria-hidden="true"><b>LEARN</b><b>LEARN</b></div>
+        <div class="copy rise">
+          <div class="chips"><span>კ2 · INNOVATION</span></div>
+          <h1>FIVE LINES.<br />THEN THE TAP.</h1>
+          <div class="learn">
+            <div>
+              <div class="words"><span>FEE</span><span>WEEK</span><span>GOAL</span><span>RECAP</span><span>TAP</span></div>
+              <button class="textbtn" type="button" id="teachBtn">SHOW THE LESSON</button>
+            </div>
+            <div class="receipt" id="lessonCard">
+              <div class="r-head">
+                <div>
+                  <div class="r-merchant">Mtsvadi House</div>
+                  <div class="r-meta">EXAMPLE · Gldani · Visa •••• 4242</div>
+                </div>
+                <div class="r-wait">WAITING</div>
+              </div>
+              <div class="r-lines">
+                <div class="r-line"><span>Khachapuri × 1</span><span>₾18.00</span></div>
+                <div class="r-line"><span>Delivery</span><span>₾2.49</span></div>
+                <div class="r-line"><span>Service</span><span>₾0.99</span></div>
+                <div class="r-line r-total"><span>Total</span><span>₾21.48</span></div>
+              </div>
+              <div class="teach"><div class="teach-in">
+                <div class="bar" aria-hidden="true"><i></i></div>
+                <p>Food this week, ₾86 of ₾120. Fees on this order are ₾3.48.</p>
+                <p>Laptop goal, ₾640 still to go. This tap leaves it alone.</p>
+              </div></div>
+              <div class="btns">
+                <a class="solid" href="/demo/wolt">Live agent</a>
+                <span class="ghostbtn">Cancel</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="others" data-label="Others">
+      <div class="pad">
+        <div class="ghost" aria-hidden="true"><b>OTHERS</b><b>OTHERS</b></div>
+        <div class="copy rise">
+          <div class="chips"><span>კ2 · INNOVATION</span></div>
+          <h1>REAL PRICE. ON TIME.</h1>
+          <div class="cmp">
+            <div class="cmp-h"><span></span><span>WHEN</span><span>PRICE</span><span>LESSON</span></div>
+            <div class="cmp-r"><b>The store</b><span>Now</span><span>Catalog</span><span>Total</span></div>
+            <div class="cmp-r"><b>The bank app</b><span>Later</span><span>Statement</span><span>If they look</span></div>
+            <div class="cmp-r"><b>A chatbot</b><span>Now</span><span>A guess</span><span>A paragraph</span></div>
+            <div class="cmp-r us"><b>Alde</b><span>Now</span><span>Catalog</span><span>The week</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="alde" data-label="Alde">
+      <div class="pad">
+        <div class="ghost" aria-hidden="true"><b>ALDE</b><b>ALDE</b></div>
+        <div class="copy rise">
+          <div class="chips"><span>კ2 · INNOVATION</span><span>კ4 · BUSINESS</span></div>
+          <h1>ONE HOME.<br />CATALOGS APART.</h1>
+          <div class="split">
+            <article class="panel">
+              <div class="kicker">TODAY</div>
+              <h2>EIGHT DEMOS</h2>
+              <div class="names"><i>Wolt</i><i>Bolt</i><i>Wizz Air</i><i>Swoop</i><i>tkt.ge</i><i>myhome</i><i>Biblusi</i><i>2 Nabiji</i></div>
+            </article>
+            <article class="panel">
+              <div class="kicker">NEXT</div>
+              <h2>ONE ALDE</h2>
+              <p>Their week, in one place. Each company keeps its own customers.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="build" data-label="Build">
+      <div class="pad">
+        <div class="ghost" aria-hidden="true"><b>BUILD</b><b>BUILD</b></div>
+        <div class="copy rise">
+          <div class="chips"><span>კ3 · FEASIBILITY</span></div>
+          <h1>IT ALREADY RUNS.</h1>
+          <ol class="ladder">
+            <li><b>01</b>Idea</li>
+            <li class="here"><b>HERE</b>Prototype</li>
+            <li><b>03</b>Five lines</li>
+            <li><b>04</b>One pilot</li>
+            <li><b>05</b>One Alde</li>
+          </ol>
+          <p>The model cannot pay.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="price" data-label="Price">
+      <div class="pad">
+        <div class="ghost" aria-hidden="true"><b>PRICE</b><b>PRICE</b></div>
+        <div class="copy rise">
+          <div class="chips"><span>კ4 · BUSINESS</span></div>
+          <h1>THE COMPANY PAYS.</h1>
+          <div class="qs">
+            <article><b>WHO</b><p>The company.</p></article>
+            <article><b>HOW MUCH</b><p>₾600 a month.</p></article>
+            <article><b>YEAR ONE</b><p>10 companies. ₾72,000.</p></article>
+          </div>
+          <p>A price to test. The customer pays the company.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="proof" data-label="Proof">
+      <div class="pad">
+        <div class="ghost" aria-hidden="true"><b>PROOF</b><b>PROOF</b></div>
+        <div class="copy rise">
+          <div class="chips"><span>კ1 · PROBLEM</span><span>კ4 · BUSINESS</span></div>
+          <h1>OPEN IT.<br />REVENUE IS AHEAD.</h1>
+          <ol class="ladder">
+            <li><b>01</b>Guess</li>
+            <li class="here"><b>HERE</b>Prototype</li>
+            <li><b>03</b>Talks</li>
+            <li><b>04</b>Pilot</li>
+            <li><b>05</b>Paying</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="roles" data-label="Roles">
+      <div class="pad">
+        <div class="ghost" aria-hidden="true"><b>ROLES</b><b>ROLES</b></div>
+        <div class="copy rise">
+          <div class="chips"><span>კ5 · TEAM</span></div>
+          <h1>FOUR ROLES. ONE OPEN.</h1>
+          <div class="roles">
+            <article class="role"><em>01</em><strong>Product</strong></article>
+            <article class="role"><em>02</em><strong>Engineering</strong></article>
+            <article class="role"><em>03</em><strong>Design</strong></article>
+            <article class="role open"><em>04</em><strong>Mentor</strong></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="ask" data-label="Ask">
+      <div class="pad">
+        <div class="ghost" aria-hidden="true"><b>ASK</b><b>ASK</b></div>
+        <div class="copy rise">
+          <div class="chips"><span>კ4 · BUSINESS</span><span>კ3 · FEASIBILITY</span></div>
+          <h1>ONE PILOT.</h1>
+          <div class="words"><span>A DOOR</span><span>A MENTOR</span><span>FIVE LINES</span></div>
+          <p class="pull">They say it. They see the week. They tap.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="score" data-label="Score">
+      <div class="pad">
+        <div class="ghost" aria-hidden="true"><b>SCORE</b><b>SCORE</b></div>
+        <div class="copy rise">
+          <div class="chips"><span>კ6 · PRESENTATION</span></div>
+          <h1>SIX SCORES.</h1>
+          <div class="scores">
+            <a href="#problem"><em>კ1</em><b>The lesson comes late</b></a>
+            <a href="#solution"><em>კ2</em><b>On the card</b></a>
+            <a href="#build"><em>კ3</em><b>It already runs</b></a>
+            <a href="#price"><em>კ4</em><b>The company pays</b></a>
+            <a href="#roles"><em>კ5</em><b>Four roles</b></a>
+            <a href="#open"><em>კ6</em><b>This deck</b></a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="foot" aria-hidden="true">
+    <div class="track">
+      <p><span>WOLT</span><span>BOLT</span><span>WIZZ AIR</span><span>SWOOP</span><span>TKT.GE</span><span>MYHOME</span><span>BIBLUSI</span><span>2 NABIJI</span><b>THEN ONE ALDE</b><span>FOOD</span><span>RIDES</span><span>FLIGHTS</span><span>TICKETS</span><span>STAYS</span><span>BOOKS</span><span>GROCERY</span></p>
+      <p><span>WOLT</span><span>BOLT</span><span>WIZZ AIR</span><span>SWOOP</span><span>TKT.GE</span><span>MYHOME</span><span>BIBLUSI</span><span>2 NABIJI</span><b>THEN ONE ALDE</b><span>FOOD</span><span>RIDES</span><span>FLIGHTS</span><span>TICKETS</span><span>STAYS</span><span>BOOKS</span><span>GROCERY</span></p>
+    </div>
+  </div>
+
+  <nav class="rail" id="rail" aria-label="Slides"></nav>
+  <div class="pager">
+    <button type="button" id="prev" aria-label="Previous slide">↑</button>
+    <button type="button" id="next" aria-label="Next slide">↓</button>
+  </div>
+
+  <script>
+    (() => {
+      const cv = document.getElementById("stars");
+      const ctx = cv.getContext("2d");
+      const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const dots = Array.from({ length: 48 }, () => ({
+        x: Math.random(), y: Math.random(), r: Math.random() * 1.2 + 0.3,
+        s: Math.random() * 0.15 + 0.02, a: Math.random(), red: Math.random() > 0.92,
+      }));
+      const resize = () => {
+        const dpr = Math.min(devicePixelRatio || 1, 2);
+        cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      };
+      resize();
+      addEventListener("resize", resize);
+      let t = 0;
+      const frame = () => {
+        if (!reduce) t += 0.004;
+        ctx.clearRect(0, 0, innerWidth, innerHeight);
+        for (const d of dots) {
+          const y = ((d.y + t * d.s) % 1) * innerHeight;
+          const x = d.x * innerWidth;
+          ctx.fillStyle = d.red ? `rgba(255,45,45,${0.35 + 0.4 * Math.sin(t * 3 + d.a)})` : `rgba(255,255,255,${0.15 + 0.35 * Math.sin(t * 2 + d.a)})`;
+          ctx.fillRect(x, y, d.r, d.r);
+        }
+        requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+
+      const cur = document.getElementById("cur");
+      if (matchMedia("(hover: hover) and (pointer: fine)").matches && !reduce) {
+        addEventListener("pointermove", (e) => {
+          cur.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+          cur.classList.toggle("hot", !!e.target.closest("a, button, h1"));
+        });
+      }
+
+      const slides = [...document.querySelectorAll(".slide")];
+      const rail = document.getElementById("rail");
+      const bar = document.getElementById("bar");
+      const count = document.getElementById("count");
+      const fromHash = slides.findIndex((s) => s.id === location.hash.slice(1));
+      let i = fromHash > 0 ? fromHash : 0, lock = false, queued = null;
+      slides.forEach((s, n) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.title = s.dataset.label;
+        b.setAttribute("aria-label", s.dataset.label);
+        b.addEventListener("click", () => go(n));
+        rail.appendChild(b);
+      });
+      const dotsNav = [...rail.children];
+      function paint() {
+        slides.forEach((s, n) => {
+          const on = n === i;
+          s.classList.toggle("on", on);
+          s.toggleAttribute("inert", !on);
+          s.setAttribute("aria-hidden", on ? "false" : "true");
+          dotsNav[n].classList.toggle("on", on);
+        });
+        bar.style.width = ((i + 1) / slides.length * 100) + "%";
+        count.textContent = String(i + 1).padStart(2, "0") + " / " + String(slides.length).padStart(2, "0");
+        history.replaceState(null, "", "#" + slides[i].id);
+      }
+      function go(n) {
+        if (n === i || n < 0 || n >= slides.length) return;
+        if (lock) { queued = n; return; }
+        lock = true;
+        const prev = i;
+        slides[prev].classList.remove("on");
+        slides[prev].classList.add("leave");
+        slides[n].classList.remove("leave");
+        i = n;
+        paint();
+        setTimeout(() => {
+          slides[prev].classList.remove("leave");
+          lock = false;
+          if (queued != null) { const q = queued; queued = null; go(q); }
+        }, 880);
+      }
+      paint();
+
+      const atEdge = (el, dir) => {
+        if (!el || el.scrollHeight <= el.clientHeight + 8) return true;
+        if (dir > 0) return el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
+        return el.scrollTop <= 8;
+      };
+      let until = 0;
+      addEventListener("wheel", (e) => {
+        const pad = slides[i].querySelector(".pad");
+        const dir = Math.sign(e.deltaY);
+        if (!dir || !atEdge(pad, dir)) return;
+        e.preventDefault();
+        if (Math.abs(e.deltaY) < 12 || performance.now() < until) return;
+        until = performance.now() + 900;
+        go(i + dir);
+      }, { passive: false });
+      let y0 = 0;
+      addEventListener("touchstart", (e) => { y0 = e.changedTouches[0].clientY; }, { passive: true });
+      addEventListener("touchend", (e) => {
+        const dy = e.changedTouches[0].clientY - y0;
+        if (Math.abs(dy) < 48) return;
+        const dir = dy < 0 ? 1 : -1;
+        if (!atEdge(slides[i].querySelector(".pad"), dir)) return;
+        go(i + dir);
+      }, { passive: true });
+      addEventListener("keydown", (e) => {
+        if (["ArrowDown", "ArrowRight", "PageDown", " "].includes(e.key)) { e.preventDefault(); go(i + 1); }
+        else if (["ArrowUp", "ArrowLeft", "PageUp"].includes(e.key)) { e.preventDefault(); go(i - 1); }
+        else if (e.key === "Home") { e.preventDefault(); go(0); }
+        else if (e.key === "End") { e.preventDefault(); go(slides.length - 1); }
+      });
+      document.getElementById("prev").addEventListener("click", () => go(i - 1));
+      document.getElementById("next").addEventListener("click", () => go(i + 1));
+      addEventListener("hashchange", () => {
+        const n = slides.findIndex((s) => s.id === location.hash.slice(1));
+        if (n >= 0) go(n);
+      });
+
+      const card = document.getElementById("lessonCard");
+      const teach = document.getElementById("teachBtn");
+      teach.addEventListener("click", () => {
+        card.classList.toggle("taught");
+        teach.textContent = card.classList.contains("taught") ? "SHOW TODAY'S CARD" : "SHOW THE LESSON";
+      });
+    })();
+  </script>
+</body>
+</html>

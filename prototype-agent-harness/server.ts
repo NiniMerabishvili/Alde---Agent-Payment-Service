@@ -7,7 +7,7 @@
 //   POST /v1/payments/:id/cancel
 //   GET  /sdk.js                      JS SDK for deep integrations (host renders its own UI)
 //   GET  /widget.js                   drop-in chat bubble for zero-effort integrations
-//   GET  /                            client guide;  /demo = tenant index;  /demo/wolt = look-alike app
+//   GET  /                            client guide;  /pitch = FinEdu deck;  /demo = tenant index;  /demo/wolt = look-alike app
 //   GET  /demo-data/:tenant           the tenant's venues + menu (stands in for the client's own catalog)
 //   GET  /debug/:tenant               that tenant's isolated memory + payments
 //   POST /debug/:tenant/reset         wipe that tenant's memory + payments (before a demo)
@@ -60,6 +60,11 @@ Bun.serve({
         .replaceAll("{{TENANT_COUNT}}", String(tenants.length))
         .replace("{{TENANT_CARDS}}", tenantCards(tenants));
       return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" } });
+    }
+    if (path === "/pitch") {
+      return new Response(Bun.file(`${dir}/pitch.html`), {
+        headers: { ...cors, "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" },
+      });
     }
     if (path === "/demo") {
       const links = tenants.map((t) => `<a class="t" style="background:${t.brandColor}" href="/demo/${t.id}">${t.name}</a>`).join("");
